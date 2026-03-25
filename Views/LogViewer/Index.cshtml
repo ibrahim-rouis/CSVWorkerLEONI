@@ -1,0 +1,413 @@
+@using CSVWorker.Configuration
+@inject Microsoft.Extensions.Options.IOptions<CSVWorkerConfig> CSVWorkerConfigOptions
+@model CSVWorker.Models.ViewModels.LogViewerViewModel
+@{
+    ViewData["Title"] = "Log Viewer";
+    var statistics = ViewBag.Statistics as Dictionary<string, int> ?? new Dictionary<string, int>();
+    var config = CSVWorkerConfigOptions.Value;
+}
+
+@section PageStyles {
+    <style>
+        .log-entry {
+            padding: 0.5rem 0.75rem;
+            border-right-width: 4px;
+            border-right-style: solid;
+            margin-bottom: 2px;
+            font-family: 'SFMono-Regular', Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace;
+            font-size: 0.8rem;
+            background-color: #f8f9fc;
+        }
+
+            .log-entry:hover {
+                background-color: #eaecf4;
+            }
+
+            .log-entry.expandable {
+                cursor: pointer;
+            }
+
+        .log-verbose {
+            border-right-color: #858796;
+        }
+
+        .log-debug {
+            border-right-color: #36b9cc;
+        }
+
+        .log-info {
+            border-right-color: #1cc88a;
+        }
+
+        .log-warning {
+            border-right-color: #f6c23e;
+        }
+
+        .log-error {
+            border-right-color: #e74a3b;
+        }
+
+        .log-fatal {
+            border-right-color: #6f42c1;
+        }
+
+        .log-timestamp {
+            color: #858796;
+            font-size: 0.75rem;
+        }
+
+        .log-level {
+            font-weight: bold;
+            padding: 0.1rem 0.4rem;
+            border-radius: 0.2rem;
+            font-size: 0.7rem;
+        }
+
+        .log-level-verbose {
+            background-color: #858796;
+            color: white;
+        }
+
+        .log-level-debug {
+            background-color: #36b9cc;
+            color: white;
+        }
+
+        .log-level-info {
+            background-color: #1cc88a;
+            color: white;
+        }
+
+        .log-level-warning {
+            background-color: #f6c23e;
+            color: white;
+        }
+
+        .log-level-error {
+            background-color: #e74a3b;
+            color: white;
+        }
+
+        .log-level-fatal {
+            background-color: #6f42c1;
+            color: white;
+        }
+
+        .log-context {
+            color: #4e73df;
+            font-size: 0.75rem;
+        }
+
+        .log-message {
+            color: #3a3b45;
+        }
+
+        .log-exception {
+            color: #e74a3b;
+            white-space: pre-wrap;
+            font-size: 0.75rem;
+            margin-top: 0.5rem;
+            padding: 0.5rem 1rem;
+            border-left: 3px solid #e74a3b;
+            background-color: #fff5f5;
+            border-radius: 0 0.25rem 0.25rem 0;
+            display: none;
+        }
+
+            .log-exception.show {
+                display: block;
+            }
+
+        .log-container {
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+
+        .stat-badge {
+            padding: 0.3rem 0.6rem;
+            border-radius: 0.35rem;
+            font-size: 0.75rem;
+            margin-right: 0.5rem;
+        }
+
+        .expand-icon {
+            color: #e74a3b;
+            margin-right: 0.25rem;
+            transition: transform 0.2s ease;
+        }
+
+            .expand-icon.rotated {
+                transform: rotate(90deg);
+            }
+
+        .has-exception {
+            color: #e74a3b;
+            font-size: 0.7rem;
+            margin-left: 0.5rem;
+        }
+    </style>
+}
+
+
+<div class="container-fluid">
+    <div class="d-sm-flex align-items-center justify-content-between mb-4">
+        <h1 class="h3 mb-0 text-gray-800">
+            <i class="fas fa-file-alt fa-sm text-gray-300"></i> Log Viewer
+        </h1>
+        @if (Model.ViewMode == "day")
+        {
+            <a asp-action="Download" asp-route-date="@Model.SelectedDate.ToString("yyyy-MM-dd")" class="btn rounded-pill btn-primary"><span class="icon-base bx bx-arrow-to-bottom icon-sm me-2"></span><span>Download Logs @Model.SelectedDate.ToString("yyyy-MM-dd")</span></a>
+
+        }
+        else
+        {
+            <a asp-action="DownloadMonth" asp-route-year="@Model.SelectedYear" asp-route-month="@Model.SelectedMonth" class="btn rounded-pill btn-primary"><span class="icon-base bx bx-arrow-to-bottom icon-sm me-2"></span><span>Download Logs for @(Model.SelectedYear)-@(Model.SelectedMonth?.ToString("00"))</span></a>
+
+        }
+    </div>
+
+    <!-- Filter Card -->
+    <div class="card mb-4">
+        <h5 class="card-header py-2">Filter</h5>
+        <div class="card-body">
+            <form method="get">
+                <div class="row g-3 align-items-end">
+                    <div class="col-md-2">
+                        <label class="form-label"><i class="fas fa-eye"></i> View Mode</label>
+                        <select name="viewMode" class="form-select form-select-sm" onchange="toggleViewMode(this.value)">
+                            <option value="day" selected="@(Model.ViewMode == "day")">Per Day</option>
+                            <option value="month" selected="@(Model.ViewMode == "month")">Per Month</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2" id="daySelector" style="display: @(Model.ViewMode == "day" ? "block" : "none")">
+                        <label class="form-label"><i class="fas fa-calendar-day"></i> Date</label>
+                        <input type="date" name="date" class="form-control form-control-sm"
+                               value="@Model.SelectedDate.ToString("yyyy-MM-dd")" />
+                    </div>
+                    <div class="col-md-2" id="yearSelector" style="display: @(Model.ViewMode == "month" ? "block" : "none")">
+                        <label class="form-label"><i class="fas fa-calendar-alt"></i> Year</label>
+                        <select name="year" class="form-select form-select-sm">
+                            @for (int y = DateTime.Now.Year; y >= DateTime.Now.Year - 5; y--)
+                            {
+                                <option value="@y" selected="@(Model.SelectedYear == y)">@y</option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2" id="monthSelector" style="display: @(Model.ViewMode == "month" ? "block" : "none")">
+                        <label class="form-label"><i class="fas fa-calendar"></i> Month</label>
+                        <select name="month" class="form-select form-select-sm">
+                            @for (int m = 1; m <= 12; m++)
+                            {
+                                <option value="@m" selected="@(Model.SelectedMonth == m)">
+                                    @System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(m)
+                                </option>
+                            }
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label"><i class="fas fa-filter"></i> Level</label>
+                        <select name="levelFilter" class="form-select form-select-sm">
+                            <option value="" selected="@(Model.LevelFilter == "")">All Levels</option>
+                            <option value="DBG" selected="@(Model.LevelFilter == "DBG")">Debug</option>
+                            <option value="INF" selected="@(Model.LevelFilter == "INF")">Information</option>
+                            <option value="WRN" selected="@(Model.LevelFilter == "WRN")">Warning</option>
+                            <option value="ERR" selected="@(Model.LevelFilter == "ERR")">Error</option>
+                        </select>
+                    </div>
+                    <div class="col-md-2">
+                        <label class="form-label"><i class="fas fa-search"></i> Search</label>
+                        <input type="text" name="searchTerm" class="form-control form-control-sm"
+                               placeholder="Search logs..." value="@Model.SearchTerm" />
+                    </div>
+                    <div class="col-auto d-flex justify-content-end">
+                        <button type="submit" class="btn btn-icon rounded-pill btn-primary me-2" title="Search">
+                            <span class="icon-base bx bx-search icon-md"></span>
+                        </button>
+                        <a href="@Url.Action("Index")" class="btn btn-icon rounded-pill btn-secondary me-2" title="Reset">
+                            <span class="icon-base bx bx-undo icon-md"></span>
+                        </a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Statistics -->
+    @if (statistics.Any())
+    {
+        <div class="row mb-4">
+            <div class="col-12">
+                <span class="text-gray-600 mx-2">Statistics:</span>
+                @foreach (var stat in statistics.OrderBy(s => s.Key))
+                {
+                    var cssClass = stat.Key switch
+                    {
+                        "DBG" => "log-level-debug",
+                        "INF" => "log-level-info",
+                        "WRN" => "log-level-warning",
+                        "ERR" => "log-level-error",
+                        _ => "log-level-info"
+                    };
+                    <span class="stat-badge @cssClass">@stat.Key: @stat.Value</span>
+                }
+                <span class="text-gray-600 mx-5">Total: @Model.LogEntries.Count entries</span>
+                @{
+                    var entriesWithExceptions = Model.LogEntries.Count(e => !string.IsNullOrEmpty(e.Exception));
+                    if (entriesWithExceptions > 0)
+                    {
+                        <button type="button" class="btn btn-sm btn-outline-danger btn-toggle-exp"><span class="icon-base bx bx-expand icon-sm me-2"></span>Toggle All Exceptions (@entriesWithExceptions)</button>
+
+                    }
+                }
+            </div>
+        </div>
+    }
+
+    <!-- Error Message -->
+    @if (!string.IsNullOrEmpty(Model.ErrorMessage))
+    {
+        <div class="alert alert-danger">
+            <i class="fas fa-exclamation-triangle"></i> @Model.ErrorMessage
+        </div>
+    }
+
+    <!-- Log Entries -->
+    <div class="card shadow mb-4">
+        <div class="card-header py-3 d-flex align-items-center">
+            <h6 class="m-0 font-weight-bold text-primary">
+                @if (Model.ViewMode == "month")
+                {
+                    @:Logs for @System.Globalization.CultureInfo.CurrentCulture.DateTimeFormat.GetMonthName(Model.SelectedMonth ?? 1) @Model.SelectedYear
+                }
+                else
+                {
+                    @:Logs for @Model.SelectedDate.ToString("dddd, MMMM dd, yyyy")
+                }
+            </h6>
+
+            <!-- Export Button -->
+            <span class="text-gray-500 ms-3">@Model.LogEntries.Count entries</span>
+            <div class="ms-auto">
+                <a asp-action="ExportAndDownload" asp-route-date="@Model.SelectedDate.ToString("yyyy-MM-dd")"
+                   asp-route-month="@Model.SelectedMonth"
+                   asp-route-year="@Model.SelectedYear"
+                   asp-route-viewMode="@Model.ViewMode"
+                   asp-route-levelFilter="@Model.LevelFilter"
+                   asp-route-searchTerm="@Model.SearchTerm" class="btn btn-sm rounded-pill btn-primary">
+                   <span class="icon-base bx bx-arrow-to-bottom icon-sm me-2"></span>Export</a>
+
+            </div>
+        </div>
+        <div class="card-body p-0">
+            @if (Model.LogEntries.Count == 0)
+            {
+                <div class="text-center py-5 text-gray-500">
+                    <i class="fas fa-inbox fa-3x mb-3"></i>
+                    <p>No log entries found for the selected criteria.</p>
+                </div>
+            }
+            else
+            {
+                <div class="log-container">
+                    @{
+                        var entryIndex = 0;
+                    }
+                    @foreach (var entry in Model.LogEntries.OrderByDescending(e => e.Timestamp))
+                    {
+                        var levelClass = entry.Level.ToUpperInvariant() switch
+                        {
+                            "DBG" => "log-level-debug",
+                            "INF" => "log-level-info",
+                            "WRN" => "log-level-warning",
+                            "ERR" => "log-level-error",
+                            _ => "log-level-info"
+                        };
+                        var hasException = !string.IsNullOrEmpty(entry.Exception);
+                        var expandableClass = hasException ? "expandable" : "";
+
+                        <div class="log-entry @entry.GetLevelCssClass() @expandableClass"
+                             @if (hasException)
+                            {
+                                 <text>onclick="toggleException(@entryIndex)"</text>
+                             }
+        >
+                                    @if (hasException)
+                                    {
+                                            <i class="fas fa-chevron-right expand-icon" id="icon-@entryIndex"></i>
+                                    }
+                                    <span class="log-timestamp">@entry.Timestamp.ToString("yyyy-MM-dd HH:mm:ss.fff")</span>
+                                    <span class="log-level @levelClass">@entry.Level</span>
+                                    <span class="log-context">[@entry.SourceContext]</span>
+                                    <span class="log-message">@entry.Message</span>
+                                    @if (hasException)
+                                    {
+                                            <span class="has-exception">
+                                                <i class="fas fa-bug"></i> Has Exception (click to expand)
+                                            </span>
+                                            <div class="log-exception" id="exception-@entryIndex">@entry.Exception</div>
+                                    }
+                                </div>
+                        entryIndex++;
+                    }
+                </div>
+            }
+        </div>
+    </div>
+
+    <!-- Available Log Dates -->
+    @if (Model.AvailableLogDates.Any())
+    {
+        <div class="card shadow mb-4">
+            <div class="card-header py-3">
+                <h6 class="m-0 font-weight-bold text-primary">Available Log Files (Past @config.DefaultLogsHistoryCount days)</h6>
+            </div>
+            <div class="card-body">
+                <div class="d-flex flex-wrap">
+                    @foreach (var logDate in Model.AvailableLogDates.Take(config.DefaultLogsHistoryCount))
+                    {
+                        var isSelected = logDate.Date == Model.SelectedDate.Date && Model.ViewMode == "day";
+                        <a href="@Url.Action("Index", new { date = logDate.ToString("yyyy-MM-dd"), viewMode = "day" })"
+                           class="btn btn-sm @(isSelected ? "btn-primary" : "btn-outline-primary") mx-1">
+                            @logDate.ToString("MMM dd, yyyy")
+                        </a>
+                    }
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@section PageScripts {
+    <script>
+        $(document).ready(function() {
+            $(".btn-toggle-exp").on('click', function (e) {
+                toggleAllExceptions();
+            });
+        });
+
+        function toggleViewMode(mode) {
+            // .toggle(boolean) will show the element if true, and hide it if false
+            $('#daySelector').toggle(mode === 'day');
+            $('#yearSelector').toggle(mode === 'month');
+            $('#monthSelector').toggle(mode === 'month');
+        }
+
+        function toggleException(index) {
+            // .toggleClass() automatically adds the class if missing, or removes it if present
+            $('#exception-' + index).toggleClass('show');
+            $('#icon-' + index).toggleClass('rotated');
+        }
+
+        function toggleAllExceptions() {
+            var $exceptions = $('.log-exception');
+            var $icons = $('.expand-icon');
+
+            // Check if any elements do NOT have the 'show' class
+            var anyHidden = $exceptions.not('.show').length > 0;
+
+            // .toggleClass(class, state) adds the class if 'state' is true, removes it if false
+            $exceptions.toggleClass('show', anyHidden);
+            $icons.toggleClass('rotated', anyHidden);
+        }
+    </script>
+}

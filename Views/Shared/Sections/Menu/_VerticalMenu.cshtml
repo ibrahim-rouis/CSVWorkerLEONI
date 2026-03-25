@@ -1,0 +1,326 @@
+@{
+    TempData.Keep();
+    string? currentPage = ViewContext.HttpContext.Request.Path;
+}
+
+<!-- Menu -->
+@* ! Do this simple *@
+<aside id="layout-menu" class="layout-menu menu-vertical menu bg-menu-theme">
+
+    @* ! Hide app brand if navbar-full *@
+    <div class='app-brand demo @((@ViewData["navbarFull"] != null && Convert.ToBoolean(@ViewData["navbarFull"])) ? "d-xl-none" : "")'>
+        <a asp-controller="Home" asp-action="Index" class="app-brand-link">
+            <span class="app-brand-logo demo">
+                @await Html.PartialAsync("../_Partials/_Brand")
+            </span>
+            <span class="app-brand-text demo menu-text fw-bold ms-2">@TempData.Peek("appName")</span>
+        </a>
+
+        <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto">
+            <i class="icon-base bx bx-chevron-left d-block d-xl-none align-middle"></i>
+        </a>
+    </div>
+
+    <div class="menu-divider mt-0"></div>
+
+    <div class="menu-inner-shadow"></div>
+
+    @* ! menu-items *@
+    <ul class="menu-inner py-1">
+        @if (User.IsInRole("Admins"))
+        {
+            <!-- Users Management -->
+            <li class='menu-item@(currentPage.StartsWith("/Users") || currentPage.StartsWith("/Roles") ? " active open" : "")'>
+                <a href="javascript:void(0);" class="menu-link menu-toggle">
+                    <i class="menu-icon icon-base bx bx-user"></i>
+                    <div class="text-truncate" data-i18n="Users Management">Users Management</div>
+                </a>
+                <ul class="menu-sub">
+                    <li class='menu-item@(currentPage.StartsWith("/Users") ? " active" : "")'>
+                        <a asp-controller="Users" asp-action="Index" class="menu-link">
+                            <div class="text-truncate">Users</div>
+                        </a>
+                    </li>
+                    <li class='menu-item@(currentPage.StartsWith("/Roles") ? " active" : "")'>
+                        <a asp-controller="Roles" asp-action="Index" class="menu-link">
+                            <div class="text-truncate">Roles</div>
+                        </a>
+                    </li>
+                </ul>
+            </li>
+            <!--/ Users Management -->
+        }
+        <!-- Part 1 -->
+        <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Part 1</span>
+        </li>
+        <!-- Part 1 sections -->
+        <!-- Section 1 -->
+        <li class='menu-item@(currentPage.StartsWith("/section1") ? " active open" : "")'>
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon icon-base bx bx-folder"></i>
+                <div class="text-truncate">Section 1</div>
+            </a>
+
+            <ul class="menu-sub">
+
+                <li class='menu-item@(currentPage == "/section1/subsection1" ? " active" : "")'>
+                    <a asp-controller="subsection1" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 1</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section1/subsection2" ? " active" : "")'>
+                    <a asp-controller="subsection2" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 2</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section1/subsection3" ? " active" : "")'>
+                    <a asp-controller="subsection3" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 3</div>
+                    </a>
+                </li>
+            </ul>
+        </li>
+        <!-- Section 2 -->
+        <li class='menu-item@(currentPage.StartsWith("/section2") ? " active open" : "")'>
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon icon-base bx bx-folder"></i>
+                <div class="text-truncate">Section 2</div>
+            </a>
+
+            <ul class="menu-sub">
+
+                <li class='menu-item@(currentPage == "/section2/subsection1" ? " active" : "")'>
+                    <a asp-controller="subsection1" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 1</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section2/subsection2" ? " active" : "")'>
+                    <a asp-controller="subsection2" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 2</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section2/subsection3" ? " active" : "")'>
+                    <a asp-controller="subsection3" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 3</div>
+                    </a>
+                </li>
+            </ul>
+        </li>
+
+        <!-- Part 2 -->
+        <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Part 2</span>
+        </li>
+        <!-- Part 2 sections -->
+        <!-- Section 1 -->
+        <!-- Section 1 -->
+        <li class='menu-item@(currentPage.StartsWith("/section1") ? " active open" : "")'>
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon icon-base bx bx-folder"></i>
+                <div class="text-truncate">Section 1</div>
+            </a>
+
+            <ul class="menu-sub">
+
+                <li class='menu-item@(currentPage == "/section1/subsection1" ? " active" : "")'>
+                    <a asp-controller="subsection1" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 1</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section1/subsection2" ? " active" : "")'>
+                    <a asp-controller="subsection2" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 2</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section1/subsection3" ? " active" : "")'>
+                    <a asp-controller="subsection3" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 3</div>
+                    </a>
+                </li>
+            </ul>
+        </li>
+        <!-- Section 2 -->
+        <li class='menu-item@(currentPage.StartsWith("/section2") ? " active open" : "")'>
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon icon-base bx bx-folder"></i>
+                <div class="text-truncate">Section 2</div>
+            </a>
+
+            <ul class="menu-sub">
+
+                <li class='menu-item@(currentPage == "/section2/subsection1" ? " active" : "")'>
+                    <a asp-controller="subsection1" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 1</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section2/subsection2" ? " active" : "")'>
+                    <a asp-controller="subsection2" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 2</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section2/subsection3" ? " active" : "")'>
+                    <a asp-controller="subsection3" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 3</div>
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Section 3 -->
+        <li class='menu-item@(currentPage.StartsWith("/section3") ? " active open" : "")'>
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon icon-base bx bx-folder"></i>
+                <div class="text-truncate">Section 3</div>
+            </a>
+
+            <ul class="menu-sub">
+
+                <li class='menu-item@(currentPage == "/section3/subsection1" ? " active" : "")'>
+                    <a asp-controller="subsection1" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 1</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section3/subsection2" ? " active" : "")'>
+                    <a asp-controller="subsection2" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 2</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section3/subsection3" ? " active" : "")'>
+                    <a asp-controller="subsection3" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 3</div>
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Section 4 -->
+        <li class='menu-item@(currentPage.StartsWith("/section4") ? " active open" : "")'>
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon icon-base bx bx-folder"></i>
+                <div class="text-truncate">Section 4</div>
+            </a>
+
+            <ul class="menu-sub">
+
+                <li class='menu-item@(currentPage == "/section3/subsection1" ? " active" : "")'>
+                    <a asp-controller="subsection1" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 1</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section3/subsection2" ? " active" : "")'>
+                    <a asp-controller="subsection2" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 2</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section3/subsection3" ? " active" : "")'>
+                    <a asp-controller="subsection3" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 3</div>
+                    </a>
+                </li>
+            </ul>
+
+
+            <!-- Part 3 -->
+        <li class="menu-header small text-uppercase">
+            <span class="menu-header-text">Part 3</span>
+        </li>
+        <!-- Part 2 sections -->
+        <!-- Section 1 -->
+        <li class='menu-item@(currentPage.StartsWith("/section1") ? " active open" : "")'>
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon icon-base bx bx-folder"></i>
+                <div class="text-truncate">Section 1</div>
+            </a>
+
+            <ul class="menu-sub">
+
+                <li class='menu-item@(currentPage == "/section1/subsection1" ? " active" : "")'>
+                    <a asp-controller="subsection1" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 1</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section1/subsection2" ? " active" : "")'>
+                    <a asp-controller="subsection2" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 2</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section1/subsection3" ? " active" : "")'>
+                    <a asp-controller="subsection3" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 3</div>
+                    </a>
+                </li>
+            </ul>
+        </li>
+        <!-- Section 2 -->
+        <li class='menu-item@(currentPage.StartsWith("/section2") ? " active open" : "")'>
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon icon-base bx bx-folder"></i>
+                <div class="text-truncate">Section 2</div>
+            </a>
+
+            <ul class="menu-sub">
+
+                <li class='menu-item@(currentPage == "/section2/subsection1" ? " active" : "")'>
+                    <a asp-controller="subsection1" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 1</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section2/subsection2" ? " active" : "")'>
+                    <a asp-controller="subsection2" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 2</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section2/subsection3" ? " active" : "")'>
+                    <a asp-controller="subsection3" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 3</div>
+                    </a>
+                </li>
+            </ul>
+
+            <!-- Section 3 -->
+        <li class='menu-item@(currentPage.StartsWith("/section3") ? " active open" : "")'>
+            <a href="javascript:void(0);" class="menu-link menu-toggle">
+                <i class="menu-icon icon-base bx bx-folder"></i>
+                <div class="text-truncate">Section 3</div>
+            </a>
+
+            <ul class="menu-sub">
+
+                <li class='menu-item@(currentPage == "/section3/subsection1" ? " active" : "")'>
+                    <a asp-controller="subsection1" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 1</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section3/subsection2" ? " active" : "")'>
+                    <a asp-controller="subsection2" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 2</div>
+                    </a>
+                </li>
+                <li class='menu-item@(currentPage == "/section3/subsection3" ? " active" : "")'>
+                    <a asp-controller="subsection3" asp-action="index" class="menu-link">
+                        <div class="text-truncate">Sub Section 3</div>
+                    </a>
+                </li>
+            </ul>
+
+
+            @if (User.IsInRole("Admins"))
+            {
+                <!-- Misc -->
+            <li class="menu-header small text-uppercase"><span class="menu-header-text">Misc</span></li>
+            <li class="menu-item">
+                <a asp-controller="LogViewer"
+                   asp-route-viewMode="month"
+                   asp-route-levelFilter="ERR"
+                   asp-route-month="@DateTime.Now.Month"
+                   asp-route-year="@DateTime.Now.Year"
+                   asp-action="Index" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-file"></i>
+                    <div class="text-truncate">Logs</div>
+                </a>
+            </li>
+            <!--/ Misc -->
+        }
+    </ul>
+
+</aside>
+<!-- / Menu -->

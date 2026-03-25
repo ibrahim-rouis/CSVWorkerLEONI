@@ -1,0 +1,102 @@
+@* ! Brand demo (display only for navbar-full and hide on below xl) *@
+
+@using System.Security.Claims
+@using CSVWorker.Services
+
+@{ 
+    // Get all role claims for the current user
+    var roles = User.Claims
+        .Where(c => c.Type == ClaimTypes.Role)
+        .Select(c => c.Value)
+        .ToList();
+
+    // Show only the main role (first role), or "No roles" if none
+    var mainRole = roles.FirstOrDefault() ?? "No roles";
+
+    // Show all roles in tooltip, or "No roles" if none
+    var tooltipString = roles.Any() ? string.Join(", ", roles) : "No roles";
+}
+
+@if (ViewData["navbarFull"] != null)
+{
+    <div class="navbar-brand app-brand demo d-none d-xl-flex py-0 me-4">
+        <a asp-controller="Home" asp-action="Index" class="app-brand-link gap-2">
+            <span class="app-brand-logo demo">
+                @await Html.PartialAsync("../_Partials/_Macros")
+            </span>
+            <span class="app-brand-text demo menu-text fw-bold text-heading">@TempData.Peek("appName")</span>
+        </a>
+
+        @* ! Display menu close icon only for horizontal-menu with navbar-full *@
+        @if (Convert.ToBoolean(@TempData.Peek("menuHorizontal")).ToString() == "True")
+        {
+            <a href="javascript:void(0);" class="layout-menu-toggle menu-link text-large ms-auto d-xl-none">
+                <i class="icon-base bx bx-chevron-left d-flex align-items-center justify-content-center"></i>
+            </a>
+        }
+    </div>
+}
+
+@* ! Not required for layout-without-menu *@
+@if (ViewData["navbarHideToggle"] == null)
+{
+    <div class="layout-menu-toggle navbar-nav align-items-xl-center me-4 me-xl-0 d-xl-none">
+        <a class="nav-item nav-link px-0 me-xl-6" href="javascript:void(0)">
+            <i class="icon-base bx bx-menu bx-md"></i>
+        </a>
+    </div>
+}
+
+
+<div class="navbar-nav-right d-flex align-items-center justify-content-end" id="navbar-collapse">
+
+    <!-- Search -->
+    <div class="navbar-nav align-items-center me-auto">
+        <div class="nav-item d-flex align-items-center">
+            <span class="w-px-22 h-px-22"><i class="icon-base bx bx-search icon-md"></i></span>
+            <input type="text" class="form-control border-0 shadow-none ps-1 ps-sm-2 d-md-block d-none" placeholder="Search..." aria-label="Search..." />
+        </div>
+    </div>
+    <!-- /Search -->
+
+
+
+    <ul class="navbar-nav flex-row align-items-center ms-md-auto">
+        <!-- User -->
+        <li class="nav-item navbar-dropdown dropdown-user dropdown">
+            <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">
+                <div class="avatar avatar-online">
+                        <img src="@Url.Action("ProfilePicture", "Account")" alt="Windows User Photo" class="w-px-40 object-fit-cover rounded-circle" />
+                </div>
+            </a>
+            <ul class="dropdown-menu dropdown-menu-end">
+                <li>
+                    <a class="dropdown-item" href="javascript:void(0);">
+                        <div class="d-flex">
+                            <div class="flex-shrink-0 me-3">
+                                <div class="avatar avatar-online">
+                                    <img src="@Url.Action("ProfilePicture", "Account")" alt="Windows User Photo" class="w-px-40 object-fit-cover rounded-circle" />
+                                </div>
+                            </div>
+                            <div class="flex-grow-1">
+                                <h6 class="mb-0">@User.Identity?.Name</h6>
+                                <small class="text-body-secondary" data-bs-toggle="tooltip" title="@tooltipString">@mainRole</small>
+                            </div>
+                        </div>
+                    </a>
+                </li>
+                <li>
+                    <div class="dropdown-divider my-1"></div>
+                </li>
+                <li>
+                    <a class="dropdown-item" asp-controller="Pages" asp-action="ProfileUser"> <i class="icon-base bx bx-user icon-md me-3"></i><span>My Profile</span> </a>
+                </li>
+                <li>
+                    <a class="dropdown-item" asp-controller="Pages" asp-action="AccountSettings"> <i class="icon-base bx bx-cog icon-md me-3"></i><span>Settings</span> </a>
+                </li>
+            </ul>
+        </li>
+        <!--/ User -->
+
+    </ul>
+</div>
