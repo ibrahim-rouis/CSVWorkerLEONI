@@ -1,0 +1,43 @@
+﻿@model CSVWorker.ViewModels.Macros1.UpdateDatabaseVM
+@{
+    ViewData["Title"] = "Update Database";
+}
+
+@* ************** Content ************** *@
+<!-- Basic Layout -->
+<div class="row mb-6 gy-6">
+    <div class="col-xl">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Update Database</h5>
+                <small class="text-body float-end">Macros1</small>
+            </div>
+            <div class="card-body">
+                <form asp-action="UpdateDatabase" method="post" enctype="multipart/form-data">
+                    <div class="mb-6">
+                        <label class="form-label fs-5" asp-for="LPCPFile">LPCP</label>
+                        <input asp-for="LPCPFile" type="file" class="form-control" accept=".csv,text/csv" required />
+                        <span asp-validation-for="LPCPFile" class="text-danger"></span>
+                    </div>
+                    <div class="mb-6">
+                        <label class="form-label fs-5" asp-for="A2File">A2</label>
+                        <input asp-for="A2File" type="file" class="form-control" accept=".csv,text/csv" required />
+                        <span asp-validation-for="A2File" class="text-danger"></span>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Start</button>
+
+                    @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
+                    {
+                        <div class="text-danger mt-3">@Model.ErrorMessage</div>
+                    }
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section PageScripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

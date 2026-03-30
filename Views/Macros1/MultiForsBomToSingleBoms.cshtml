@@ -1,0 +1,38 @@
+﻿@model CSVWorker.ViewModels.Macros1.MultiForsBomToSingleBomsVM
+@{
+    ViewData["Title"] = "Update Database";
+}
+
+@* ************** Content ************** *@
+<!-- Basic Layout -->
+<div class="row mb-6 gy-6">
+    <div class="col-xl">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Multiple Batch FORS CSV BOM to single IMDS CSV BOMs</h5>
+                <small class="text-body float-end">Macros1</small>
+            </div>
+            <div class="card-body">
+                <form asp-action="MultiForsBomToSingleBoms" method="post" enctype="multipart/form-data">
+                    <div class="mb-6">
+                        <label class="form-label fs-5" asp-for="CsvFiles">Select CSV files (you can select many)</label>
+                        <input asp-for="CsvFiles" type="file" class="form-control" multiple accept=".csv,text/csv" />
+                        <span asp-validation-for="CsvFiles" class="text-danger"></span>
+                    </div>
+                    <button type="submit" class="btn btn-primary">Start</button>
+
+                    @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
+                    {
+                        <div class="text-danger mt-3">@Model.ErrorMessage</div>
+                    }
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section PageScripts {
+    @{
+        await Html.RenderPartialAsync("_ValidationScriptsPartial");
+    }
+}

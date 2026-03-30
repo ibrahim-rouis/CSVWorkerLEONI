@@ -1,4 +1,4 @@
-namespace CSVWorker.Models.ViewModels
+namespace CSVWorker.ViewModels
 {
     public class ErrorViewModel
     {

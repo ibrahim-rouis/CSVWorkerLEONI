@@ -1,4 +1,5 @@
-﻿using System.Runtime.CompilerServices;
+﻿using System.Globalization;
+using System.Runtime.CompilerServices;
 using System.Text;
 
 namespace CSVWorker.Services.CSVHelper
@@ -151,25 +152,19 @@ namespace CSVWorker.Services.CSVHelper
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var read = await reader.ReadAsync(buffer.AsMemory(0, 1));
-                if (read == 0)
-                {
-                    if (!hasData && current.Length == 0 && fields.Count == 0)
-                    {
-                        return null;
-                    }
+                int cInt = reader.Read();
 
-                    if (inQuotes)
-                    {
-                        throw new FormatException("Invalid CSV content: unmatched quote at end of file.");
-                    }
+                if (cInt == -1) // End of stream
+                {
+                    if (!hasData && current.Length == 0 && fields.Count == 0) return null;
+                    if (inQuotes) throw new FormatException("Unmatched quote at EOF.");
 
                     fields.Add(current.ToString());
                     return fields;
                 }
 
                 hasData = true;
-                var c = buffer[0];
+                char c = (char)cInt;
 
                 if (c == '"')
                 {
@@ -204,6 +199,53 @@ namespace CSVWorker.Services.CSVHelper
 
                 current.Append(c);
             }
+        }
+
+        public string GetValue(IReadOnlyList<string> row, int index)
+        {
+            if (index < 0 || index >= row.Count)
+            {
+                return string.Empty;
+            }
+
+            return row[index]?.Trim() ?? string.Empty;
+        }
+
+        public int FindHeaderIndex(IReadOnlyList<string> headers, params string[] acceptedNames)
+        {
+            for (var i = 0; i < headers.Count; i++)
+            {
+                var current = NormalizeHeader(headers[i]);
+                if (acceptedNames.Any(name => NormalizeHeader(name) == current))
+                {
+                    return i;
+                }
+            }
+
+            throw new InvalidOperationException($"Required header not found. Expected one of: {string.Join(", ", acceptedNames)}");
+        }
+
+        public string NormalizeHeader(string? value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            var text = value.Trim().Replace("œ", "oe", StringComparison.OrdinalIgnoreCase);
+            text = text.Normalize(NormalizationForm.FormD);
+
+            var sb = new StringBuilder(text.Length);
+            foreach (var c in text)
+            {
+                var uc = CharUnicodeInfo.GetUnicodeCategory(c);
+                if (uc != UnicodeCategory.NonSpacingMark)
+                {
+                    sb.Append(char.ToLowerInvariant(c));
+                }
+            }
+
+            return sb.ToString().Normalize(NormalizationForm.FormC);
         }
     }
 }

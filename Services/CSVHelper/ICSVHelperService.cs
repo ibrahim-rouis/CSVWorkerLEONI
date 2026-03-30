@@ -11,6 +11,13 @@
         string SerializeRow(IEnumerable<string?> fields, char delimiter = ',');
 
         IReadOnlyList<string> ParseRow(string row, char delimiter = ',');
+
+        int FindHeaderIndex(IReadOnlyList<string> headers, params string[] acceptedNames);
+
+        string NormalizeHeader(string? value);
+
+        string GetValue(IReadOnlyList<string> row, int index);
+
     }
 
     public sealed class CsvDocument

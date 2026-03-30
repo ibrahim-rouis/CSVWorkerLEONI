@@ -1,63 +1,35 @@
+using CSVWorker.Services.CSVHelper;
+using CSVWorker.Services.Macros;
 using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
-using Microsoft.AspNetCore.Authentication.Negotiate;
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.EntityFrameworkCore;
-using Serilog;
-using CSVWorker.Configuration;
-using CSVWorker.Models;
-using CSVWorker.Services;
-using CSVWorker.Services.LDAP;
+using Microsoft.AspNetCore.Http.Features;
+using Microsoft.AspNetCore.Server.Kestrel.Core;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Use Serilog for all logging
-builder.Services.AddSerilog((services, lc) => lc
-.ReadFrom.Configuration(builder.Configuration)
-.ReadFrom.Services(services));
+// ** 1. Bump Kestrel maximum request body size (e.g. 100 MB)  ** 
+builder.Services.Configure<KestrelServerOptions>(options =>
+{
+    options.Limits.MaxRequestBodySize = 104857600; // 100 MB
+});
 
-// Register the DbContext with the connection string and MySQL provider
-var connectionString = builder.Configuration.GetConnectionString("MySqlConnection");
-builder.Services.AddDbContext<CSVWorkerDBContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+// ** 2. Bump ASP.NET Core Form limits to handle large multipart uploads (100 MB) **
+builder.Services.Configure<FormOptions>(options =>
+{
+    options.ValueLengthLimit = 104857600;
+    options.MultipartBodyLengthLimit = 104857600;
+    options.MemoryBufferThreshold = 104857600;
+});
+
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
 // Add services to the container.
 builder.Services.AddControllersWithViews();
 
-// Bind CSVWorkerConfig from appsettings.json to the CSVWorkerConfig class and make it available for injection
-builder.Services.Configure<CSVWorkerConfig>(builder.Configuration.GetSection("CSVWorkerConfig"));
-
-// Bind LdapConfig from appsettings.json
-builder.Services.Configure<LdapConfig>(builder.Configuration.GetSection("LdapConfig"));
-
-// --- Authentication Setup ---
-var authBuilder = builder.Services.AddAuthentication(options =>
-{
-    options.DefaultScheme = NegotiateDefaults.AuthenticationScheme;
-    options.DefaultAuthenticateScheme = NegotiateDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = NegotiateDefaults.AuthenticationScheme;
-});
-
-authBuilder.AddNegotiate();
-
-builder.Services.AddAuthorization(options =>
-{
-    options.FallbackPolicy = options.DefaultPolicy;
-});
-
-// --- LDAP ---
-builder.Services.AddScoped<LdapService>(); // Your helper for LDAP
-
-builder.Services.AddMemoryCache();
-builder.Services.AddTransient<IClaimsTransformation, LdapClaimsTransformer>();
-
 // App Services
-builder.Services.AddScoped<UsersService>();
-builder.Services.AddScoped<RolesService>();
-builder.Services.AddScoped<LogViewerService>();
-builder.Services.AddScoped<WindowsUserService>();
+builder.Services.AddSingleton<ICsvHelperService, CsvHelperService>();
+builder.Services.AddSingleton<ICsvCheckerService, CsvCheckerService>();
+builder.Services.AddScoped<Macros1Service>();
 
 var app = builder.Build();
 
@@ -73,8 +45,6 @@ app.UseHttpsRedirection();
 app.UseStaticFiles();
 
 app.UseRouting();
-
-app.UseAuthentication();
 
 app.UseAuthorization();
 
