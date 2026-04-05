@@ -9,11 +9,11 @@
     <div class="col-xl">
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
-                <h5 class="mb-0">Update Database</h5>
-                <small class="text-body float-end">Macros1</small>
+                <h5 class="mb-0">Update Database IMDS</h5>
+                <small class="text-body float-end">IMDS Macros</small>
             </div>
             <div class="card-body">
-                <form asp-action="UpdateDatabase" method="post" enctype="multipart/form-data">
+                <form asp-action="UpdateDatabaseIMDS" method="post" enctype="multipart/form-data">
                     <div class="mb-6">
                         <label class="form-label fs-5" asp-for="LPCPFile">LPCP</label>
                         <input asp-for="LPCPFile" type="file" class="form-control" accept=".csv,text/csv" required />

@@ -220,7 +220,6 @@ namespace CSVWorker.Services
                     missingNodes.Add([partNumber, nodeId]);
                 }
 
-
                 outputRow.Add([productNumber, partNumber, partNumber, quantity, string.Empty, string.Empty, string.Empty, "RC", nodeId, string.Empty, string.Empty]);
             }
 
@@ -250,17 +249,15 @@ namespace CSVWorker.Services
                 }
 
                 // Add the IMDS output CSV to the ZIP archive
-                var entry = archive.CreateEntry(imdsFileName);
-                await using (var entryStream = entry.Open())
+                var imdsFileEntry = archive.CreateEntry(imdsFileName);
+                await using (var entryStream = imdsFileEntry.Open())
                 {
                     // IMDS csv is commas separated.
                     // unlike FORS BOM input csv files which are semicolon separated.
-                    var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRow, ',', cancellationToken);
-                    await entryStream.WriteAsync(outputCsvBytes, cancellationToken);
+                    var imdsFileEntryOutputBytes = await CsvHelper.ConvertListToCsv(outputRow, ',', cancellationToken);
+                    await entryStream.WriteAsync(imdsFileEntryOutputBytes, cancellationToken);
                     await entryStream.FlushAsync(cancellationToken);
                 }
-
-
 
                 // If there are missing nodes, we add another entry 
                 // to the ZIP with the details of the missing nodes.
@@ -269,11 +266,11 @@ namespace CSVWorker.Services
                 if (hasMissingNodes)
                 {
                     var missingNodesFileName = "missing_nodes.csv";
-                    var entry2 = archive.CreateEntry(missingNodesFileName);
-                    await using (var entryStream2 = entry2.Open())
+                    var missingNodesFileEntry = archive.CreateEntry(missingNodesFileName);
+                    await using (var entryStream2 = missingNodesFileEntry.Open())
                     {
-                        var outputCsvBytes2 = await CsvHelper.ConvertListToCsv(missingNodes, ',', cancellationToken);
-                        await entryStream2.WriteAsync(outputCsvBytes2, cancellationToken);
+                        var missingNodesOuputBytes = await CsvHelper.ConvertListToCsv(missingNodes, ',', cancellationToken);
+                        await entryStream2.WriteAsync(missingNodesOuputBytes, cancellationToken);
                         await entryStream2.FlushAsync(cancellationToken);
                     }
                 }
@@ -285,7 +282,7 @@ namespace CSVWorker.Services
             return zipStream.ToArray();
         }
 
-        public async Task<byte[]> UpdateDatabase(UpdateDatabaseVM model, CancellationToken cancellationToken)
+        public async Task<byte[]> UpdateDatabaseIMDS(UpdateDatabaseVM model, CancellationToken cancellationToken)
         {
             _logger.LogInformation("UpdateDatabase started. LPCP file={LPCPFileName}, A2 file={A2FileName}", model.LPCPFile?.FileName, model.A2File?.FileName);
 
@@ -361,7 +358,7 @@ namespace CSVWorker.Services
             // Database output: first row only for titles, then rebuilt rows from A2 + LPCP enrichment
             var outputRows = new List<string[]>
             {
-                (["Node ID", "x", "PART/ITEM NO/", "FORS PN", "SIGIP PN", "Visual PN", "WGK", "last Status Date", "Weight"])
+                (["Node ID", "x", "PART/ITEM NO/", "FORS PN", "SIGIP PN", "Visual PN", "WGK", "last Status Date", "Weight", "Weight Unit"])
             };
 
             // For each A2 row, find matching LPCP row by LP/LEONI part number,
@@ -399,7 +396,7 @@ namespace CSVWorker.Services
                     visualPn = lpcpRow.Count > 3 ? lpcpRow[3] : string.Empty; // Assuming Visual PN is in the fourth column (index 3)
                 }
 
-                outputRows.Add([nodeId, string.Empty, partItemNo, forsPn, sigipPn, visualPn, string.Empty, string.Empty, string.Empty]);
+                outputRows.Add([nodeId, string.Empty, partItemNo, forsPn, sigipPn, visualPn, string.Empty, string.Empty, string.Empty, string.Empty]);
             }
 
             var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRows, ',', cancellationToken);

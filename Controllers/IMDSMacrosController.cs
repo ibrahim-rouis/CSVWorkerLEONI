@@ -18,7 +18,7 @@ namespace CSVWorker.Controllers
         {
             return NoContent();
         }
-        public IActionResult UpdateDatabase()
+        public IActionResult UpdateDatabaseIMDS()
         {
             return View(new UpdateDatabaseVM());
         }
@@ -28,7 +28,7 @@ namespace CSVWorker.Controllers
         // The following attributes increase the limits to 100 MB.
         [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
-        public async Task<IActionResult> UpdateDatabase(UpdateDatabaseVM model, CancellationToken cancellationToken)
+        public async Task<IActionResult> UpdateDatabaseIMDS(UpdateDatabaseVM model, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
@@ -48,7 +48,7 @@ namespace CSVWorker.Controllers
 
             try
             {
-                var outputBytes = await _service.UpdateDatabase(model, cancellationToken);
+                var outputBytes = await _service.UpdateDatabaseIMDS(model, cancellationToken);
                 return File(outputBytes, "text/csv", "database.csv");
             }
             catch (Exception e)

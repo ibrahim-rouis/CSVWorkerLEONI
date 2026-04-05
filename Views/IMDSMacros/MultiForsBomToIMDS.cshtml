@@ -10,12 +10,12 @@
         <div class="card">
             <div class="card-header d-flex justify-content-between align-items-center">
                 <h5 class="mb-0">Multiple Batch FORS CSV BOM to single IMDS CSV BOM</h5>
-                <small class="text-body float-end">Macros1</small>
+                <small class="text-body float-end">IMDS Macros</small>
             </div>
             <div class="card-body">
                 <form asp-action="MultiForsBomToIMDS" method="post" enctype="multipart/form-data">
                     <div class="mb-6">
-                        <label class="form-label fs-5" asp-for="CsvFiles">Select CSV files (you can select many)</label>
+                        <label class="form-label fs-5" asp-for="CsvFiles">FORS BOM CSV Files</label>
                         <input asp-for="CsvFiles" type="file" class="form-control" multiple accept=".csv,text/csv" />
                         <span asp-validation-for="CsvFiles" class="text-danger"></span>
                     </div>
