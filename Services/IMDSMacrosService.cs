@@ -413,7 +413,7 @@ namespace CSVWorker.Services
                             case "LP":
                                 a2PartItemNoIndex = i;
                                 break;
-                            case "Noeud":
+                            case "Noeud" or "Nœud":
                                 a2NodeIdIndex = i;
                                 break;
                         }
