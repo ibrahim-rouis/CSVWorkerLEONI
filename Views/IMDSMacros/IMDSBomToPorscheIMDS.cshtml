@@ -13,7 +13,7 @@
                 <small class="text-body float-end">IMDS Macros</small>
             </div>
             <div class="card-body">
-                <form asp-action="MultiForsBomToIMDS" method="post" enctype="multipart/form-data">
+                <form asp-action="IMDSBomToPorscheIMDS" method="post" enctype="multipart/form-data">
                     <div class="mb-6">
                         <label class="form-label fs-5" asp-for="IMDSFileCSV">IMDS BOM CSV</label>
                         <input asp-for="IMDSFileCSV" type="file" class="form-control" accept=".csv,text/csv" required />

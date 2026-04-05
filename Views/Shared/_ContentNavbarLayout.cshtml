@@ -21,13 +21,21 @@
   ViewData["containerNav"] = (ViewData["containerNav"] ?? "container-xxl");
 }
 
-@section VendorStyles{ @RenderSection("VendorStyles", required: false) }
+@section VendorStyles {
+  @RenderSection("VendorStyles", required: false)
+}
 
-@section PageStyles{ @RenderSection("PageStyles", required: false) }
+@section PageStyles {
+  @RenderSection("PageStyles", required: false)
+}
 
-@section VendorScripts{ @RenderSection("VendorScripts", required: false) }
+@section VendorScripts {
+  @RenderSection("VendorScripts", required: false)
+}
 
-@section PageScripts{ @RenderSection("PageScripts", required: false) }
+@section PageScripts {
+  @RenderSection("PageScripts", required: false)
+}
 
 @{
   bool isMenu = ViewData["isMenu"] != null && Convert.ToBoolean(ViewData["isMenu"]);
@@ -43,11 +51,20 @@
 
     <!-- Layout page -->
     <div class="layout-page">
+      <!-- Navbar -->
+      @if (@ViewData["isNavbar"] != null && Convert.ToBoolean(@ViewData["isNavbar"]))
+      {
+        @await Html.PartialAsync("Sections/Navbar/_Navbar")
+      }
+      <!-- / Navbar -->
+
+
       <!-- Content wrapper -->
       <div class="content-wrapper">
 
         <!-- Content -->
-        <div class='@ViewData["container"] @(Convert.ToBoolean(@ViewData["isFlex"]) ? "d-flex align-items-stretch flex-grow-1 p-0" : "flex-grow-1 container-p-y")'>
+        <div
+          class='@ViewData["container"] @(Convert.ToBoolean(@ViewData["isFlex"]) ? "d-flex align-items-stretch flex-grow-1 p-0" : "flex-grow-1 container-p-y")'>
           @RenderBody()
         </div>
         <!-- / Content -->
