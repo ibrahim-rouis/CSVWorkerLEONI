@@ -1,6 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 
-namespace CSVWorker.ViewModels.Macros1
+namespace CSVWorker.ViewModels.IMDSMacros
 {
     public class UpdateDatabaseVM
     {

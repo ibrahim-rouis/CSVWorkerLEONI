@@ -1,18 +1,16 @@
-﻿using CSVWorker.Services.CSVHelper;
-using CSVWorker.Services.Macros;
-using CSVWorker.ViewModels.Macros1;
+﻿using CSVWorker.Libs;
+using CSVWorker.Services;
+using CSVWorker.ViewModels.IMDSMacros;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CSVWorker.Controllers
 {
-    public class Macros1Controller : Controller
+    public class IMDSMacrosController : Controller
     {
-        private readonly Macros1Service _service;
-        private readonly ICsvCheckerService _checker;
+        private readonly IMDSMacrosService _service;
 
-        public Macros1Controller(Macros1Service service, ICsvCheckerService checker, ILogger<Macros1Controller> logger)
+        public IMDSMacrosController(IMDSMacrosService service)
         {
-            _checker = checker;
             _service = service;
         }
 
@@ -26,6 +24,8 @@ namespace CSVWorker.Controllers
         }
 
         [HttpPost]
+        // The default request size limit in ASP.NET Core is 30 MB, which may not be sufficient for large CSV files.
+        // The following attributes increase the limits to 100 MB.
         [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
         public async Task<IActionResult> UpdateDatabase(UpdateDatabaseVM model, CancellationToken cancellationToken)
@@ -35,12 +35,12 @@ namespace CSVWorker.Controllers
                 model.ErrorMessage = "Please fill all required fields.";
                 return View(model);
             }
-            if (!_checker.IsValidCSV(model.LPCPFile))
+            if (!CsvHelper.IsValidCSV(model.LPCPFile))
             {
                 model.ErrorMessage = "Please select a valid LCPC CSV file.";
                 return View(model);
             }
-            if (!_checker.IsValidCSV(model.A2File))
+            if (!CsvHelper.IsValidCSV(model.A2File))
             {
                 model.ErrorMessage = "Please select a valid A2 CSV file.";
                 return View(model);
@@ -53,18 +53,18 @@ namespace CSVWorker.Controllers
             }
             catch (Exception e)
             {
-                model.ErrorMessage = e.ToString();
+                model.ErrorMessage = e.Message;
                 return View(model);
             }
         }
 
-        public IActionResult MultiForsBomToSingleBoms()
+        public IActionResult MultiForsBomToIMDS()
         {
-            return View(new MultiForsBomToSingleBomsVM());
+            return View(new MultiForsBomToIMDSBomVM());
         }
 
         [HttpPost]
-        public async Task<IActionResult> MultiForsBomToSingleBoms(MultiForsBomToSingleBomsVM model, CancellationToken cancellationToken)
+        public async Task<IActionResult> MultiForsBomToIMDS(MultiForsBomToIMDSBomVM model, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
             {
@@ -74,7 +74,7 @@ namespace CSVWorker.Controllers
 
             foreach (var csvFile in model.CsvFiles)
             {
-                if (!_checker.IsValidCSV(csvFile))
+                if (!CsvHelper.IsValidCSV(csvFile))
                 {
                     model.ErrorMessage = "You have uploaded an invalid csv file";
                     return View(model);
@@ -83,13 +83,12 @@ namespace CSVWorker.Controllers
 
             try
             {
-                //var outputStream = await _service.MultiForsBomToSingleBoms(model, cancellationToken);
-                //return File(outputStream, "application/zip", "IMDS_CSV_Files.zip");
-                return View(model);
+                var outputBytes = await _service.MultiForsBomToIMDS(model, cancellationToken);
+                return File(outputBytes, "application/zip", "IMDS_CSV_Files.zip");
             }
             catch (Exception e)
             {
-                model.ErrorMessage = e.ToString();
+                model.ErrorMessage = e.Message;
                 return View(model);
             }
         }

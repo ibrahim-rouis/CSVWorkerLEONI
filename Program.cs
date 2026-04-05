@@ -1,6 +1,4 @@
-using CSVWorker.Services.CSVHelper;
-using CSVWorker.Services.Macros;
-using Microsoft.AspNetCore.Authentication;
+using CSVWorker.Services;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 
@@ -15,9 +13,7 @@ builder.Services.Configure<KestrelServerOptions>(options =>
 // ** 2. Bump ASP.NET Core Form limits to handle large multipart uploads (100 MB) **
 builder.Services.Configure<FormOptions>(options =>
 {
-    options.ValueLengthLimit = 104857600;
     options.MultipartBodyLengthLimit = 104857600;
-    options.MemoryBufferThreshold = 104857600;
 });
 
 
@@ -27,9 +23,7 @@ builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 builder.Services.AddControllersWithViews();
 
 // App Services
-builder.Services.AddSingleton<ICsvHelperService, CsvHelperService>();
-builder.Services.AddSingleton<ICsvCheckerService, CsvCheckerService>();
-builder.Services.AddScoped<Macros1Service>();
+builder.Services.AddSingleton<IMDSMacrosService>();
 
 var app = builder.Build();
 
