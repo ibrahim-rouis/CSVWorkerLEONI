@@ -22,6 +22,16 @@ namespace CSVWorker.Services
                 throw new ArgumentException("Input missing - please provide at least one FORS BOM CSV file and a Database CSV file.");
             }
 
+            // Database headers indexes
+            const int databaseLeoniPartIndex = 2;
+            const int databaseNodeIdIndex = 0;
+
+            // FORS Bom indexes
+            const int forsBomPartNumberIndex = 1;
+            const int forsBomMaterialGroupIndex = 3;
+            const int forsBomWeightIndex = 11;
+            const int forsBomQuantityIndex = 4;
+
             // Load Database CSV
             var database = new List<string[]>();
             using (var stream = model.DatabaseCSV.OpenReadStream())
@@ -49,7 +59,7 @@ namespace CSVWorker.Services
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var leoniPart = row.Length > 2 ? row[2] : null; // LEONI part number is in the third column (index 2)
+                var leoniPart = row.Length > databaseLeoniPartIndex ? row[databaseLeoniPartIndex] : null;
                 if (string.IsNullOrWhiteSpace(leoniPart))
                 {
                     continue;
@@ -128,12 +138,12 @@ namespace CSVWorker.Services
                                     continue;
 
                                 // Cables and tapes have "BAND", "FOL", "LTG" or "SLTG" in column 4 (index 3)
-                                if (row[3] is "BAND" or "FOL" or "LTG" or "SLTG")
+                                if (row[forsBomMaterialGroupIndex] is "BAND" or "FOL" or "LTG" or "SLTG")
                                 {
                                     cablesAndTapes.Add(row);
                                 }
                                 // Connectors have "BLIND", "CKONT", "EDICH", "GEH" or "KB" in column 4 (index 3)
-                                else if (row[3] is "BLIND" or "CKONT" or "EDICH" or "GEH" or "KB")
+                                else if (row[forsBomMaterialGroupIndex] is "BLIND" or "CKONT" or "EDICH" or "GEH" or "KB")
                                 {
                                     connectors.Add(row);
                                 }
@@ -157,8 +167,8 @@ namespace CSVWorker.Services
             // Add cables and tapes to IMDS output
             foreach (var row in cablesAndTapes)
             {
-                var partNumber = row[1];
-                var weight = row[11].Replace(',', '.'); // IMDS expects '.' as decimal separator
+                var partNumber = row[forsBomPartNumberIndex];
+                var weight = row[forsBomWeightIndex].Replace(',', '.'); // IMDS expects '.' as decimal separator
 
                 // convert weight to double
                 if (double.TryParse(weight, out var weightValue))
@@ -176,8 +186,20 @@ namespace CSVWorker.Services
                 string nodeId = "#N/A"; // Default value if not found
                 if (databaseByLeoniPart.TryGetValue(partNumber, out var databaseRow))
                 {
-                    nodeId = databaseRow.Count() > 0 ? databaseRow[0] : string.Empty; // Assuming Node ID is in the first column (index 0)
+                    nodeId = databaseRow.Count() > databaseNodeIdIndex ? databaseRow[databaseNodeIdIndex] : string.Empty;
+
+                    // if row is found but nodeId is empty, we consider it as missing node, and set nodeId to "#N/A"
+                    // Also add it to missing nodes list
+                    if (string.IsNullOrWhiteSpace(nodeId))
+                    {
+                        if (!hasMissingNodes)
+                            hasMissingNodes = true;
+
+                        nodeId = "#N/A";
+                        missingNodes.Add([partNumber, nodeId]);
+                    }
                 }
+                // if row not found in database, we also consider it as missing node, and add to missing nodes list
                 else
                 {
                     if (!hasMissingNodes)
@@ -193,8 +215,8 @@ namespace CSVWorker.Services
             // Add connectors to IMDS output
             foreach (var row in connectors)
             {
-                var partNumber = row[1];
-                var quantity = row[4].Replace(',', '.'); // IMDS expects '.' as decimal separator
+                var partNumber = row[forsBomPartNumberIndex];
+                var quantity = row[forsBomQuantityIndex].Replace(',', '.'); // IMDS expects '.' as decimal separator
                 var quantityValue = int.MinValue;
 
                 // convert quantity to int
@@ -294,11 +316,13 @@ namespace CSVWorker.Services
             var lpcpDoc = new List<string[]>();
             var a2Doc = new List<string[]>();
 
+            // LPCP headers indexes - we will determine the actual indexes dynamically at runtime by reading the header row.
             int lpcpLeoniPartIndex = -1;
             int lpcpForsPnIndex = -1;
             int lpcpSigipPnIndex = -1;
             int lpcpVisualPnIndex = -1;
 
+            // A2 headers indexes - we will determine the actual indexes dynamically at runtime by reading the header row.
             int a2PartItemNoIndex = -1;
             int a2NodeIdIndex = -1;
 
@@ -596,6 +620,80 @@ namespace CSVWorker.Services
             _logger.LogInformation("UpdateDatabasePorsche finished. Output rows={RowsCount}", outputRows.Count - 1);
 
             return outputCsvBytes;
+        }
+
+        public async Task<(string fileName, byte[] outputBytes)> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
+        {
+            if (model.IMDSFileCSV == null || model.DatabasePorscheCSV == null)
+            {
+                throw new ArgumentException("Input missing - please provide the IMDS CSV file and the Database Porsche CSV file.");
+            }
+
+            // Database headers indexes
+            const int databaseLeoniPartIndex = 0;
+            const int databaseArticleNameIndex = 1;
+
+            // Load Database Porsche CSV
+            var database = new List<string[]>();
+            using (var stream = model.DatabasePorscheCSV.OpenReadStream())
+            using (var reader = new StreamReader(stream))
+            {
+                string? line;
+
+                // Skip header
+                await reader.ReadLineAsync(cancellationToken);
+
+                // Read the file line by line asynchronously
+                while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+                {
+                    var row = CsvHelper.ParseLine(line, ',');
+                    if (row != null)
+                    {
+                        database.Add(row);
+                    }
+                }
+            }
+
+            // Build a fast lookup dictionary for the database by part number
+            var databaseByLeoniPart = new Dictionary<string, IReadOnlyList<string>>();
+            foreach (var row in database)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                var leoniPart = row.Length > databaseLeoniPartIndex ? row[databaseLeoniPartIndex] : null; // LEONI part number is in the third column (index 2)
+                if (string.IsNullOrWhiteSpace(leoniPart))
+                {
+                    continue;
+                }
+
+                // If there are duplicate LEONI part numbers, we keep the first one and ignore subsequent duplicates.
+                if (!databaseByLeoniPart.ContainsKey(leoniPart))
+                {
+                    databaseByLeoniPart[leoniPart] = row;
+                }
+            }
+
+            // return same IMDS CSV file bytes for now until further notice
+            using (var stream = model.IMDSFileCSV.OpenReadStream())
+            using (var reader = new StreamReader(stream))
+            {
+                string? line;
+                var imdsData = new List<string[]>();
+
+                // Read the file line by line asynchronously
+                while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+                {
+                    var row = CsvHelper.ParseLine(line, ',');
+                    if (row != null)
+                    {
+                        imdsData.Add(row);
+                    }
+                }
+
+                // Here we would implement the logic to transform the IMDS BOM data to Porsche IMDS format,
+                // using the database for lookups as needed. For now, we will just throw a NotImplementedException
+                throw new NotImplementedException("The logic to transform IMDS BOM to Porsche IMDS is not implemented yet.");
+            }
         }
     }
 }

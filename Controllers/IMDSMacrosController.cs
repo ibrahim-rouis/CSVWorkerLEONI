@@ -84,7 +84,7 @@ namespace CSVWorker.Controllers
             try
             {
                 var outputBytes = await _service.UpdateDatabasePorsche(model, cancellationToken);
-                return File(outputBytes, "text/csv", "database.csv");
+                return File(outputBytes, "text/csv", "database_porsche.csv");
             }
             catch (Exception e)
             {
@@ -122,6 +122,46 @@ namespace CSVWorker.Controllers
             {
                 var outputBytes = await _service.MultiForsBomToIMDS(model, cancellationToken);
                 return File(outputBytes, "application/zip", "IMDS_CSV_Files.zip");
+            }
+            catch (Exception e)
+            {
+                model.ErrorMessage = e.Message;
+                return View(model);
+            }
+        }
+
+        public IActionResult IMDSBomToPorscheIMDS()
+        {
+            return View(new IMDSBomToPorscheIMDS());
+        }
+
+        [HttpPost]
+        [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
+        [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
+        public async Task<IActionResult> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                model.ErrorMessage = "Please fill all required fields.";
+                return View(model);
+            }
+
+            if (!CsvHelper.IsValidCSV(model.DatabasePorscheCSV))
+            {
+                model.ErrorMessage = "Please select a valid Database Porsche CSV file.";
+                return View(model);
+            }
+
+            if (!CsvHelper.IsValidCSV(model.IMDSFileCSV))
+            {
+                model.ErrorMessage = "Please select a valid IMDS File CSV.";
+                return View(model);
+            }
+
+            try
+            {
+                var (filename, outputBytes) = await _service.IMDSBomToPorscheIMDS(model, cancellationToken);
+                return File(outputBytes, "text/csv", filename);
             }
             catch (Exception e)
             {
