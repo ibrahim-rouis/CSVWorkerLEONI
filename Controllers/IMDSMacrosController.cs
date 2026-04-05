@@ -58,6 +58,41 @@ namespace CSVWorker.Controllers
             }
         }
 
+        public IActionResult UpdateDatabasePorsche()
+        {
+            return View(new UpdateDatabasePorscheVM());
+        }
+
+        [HttpPost]
+        // The default request size limit in ASP.NET Core is 30 MB, which may not be sufficient for large CSV files.
+        // The following attributes increase the limits to 100 MB.
+        [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
+        [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
+        public async Task<IActionResult> UpdateDatabasePorsche(UpdateDatabasePorscheVM model, CancellationToken cancellationToken)
+        {
+            if (!ModelState.IsValid)
+            {
+                model.ErrorMessage = "Please fill all required fields.";
+                return View(model);
+            }
+            if (!CsvHelper.IsValidCSV(model.LPCPFile))
+            {
+                model.ErrorMessage = "Please select a valid LCPC CSV file.";
+                return View(model);
+            }
+
+            try
+            {
+                var outputBytes = await _service.UpdateDatabasePorsche(model, cancellationToken);
+                return File(outputBytes, "text/csv", "database.csv");
+            }
+            catch (Exception e)
+            {
+                model.ErrorMessage = e.Message;
+                return View(model);
+            }
+        }
+
         public IActionResult MultiForsBomToIMDS()
         {
             return View(new MultiForsBomToIMDSBomVM());

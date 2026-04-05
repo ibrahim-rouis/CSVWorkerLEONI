@@ -294,16 +294,69 @@ namespace CSVWorker.Services
             var lpcpDoc = new List<string[]>();
             var a2Doc = new List<string[]>();
 
+            int lpcpLeoniPartIndex = -1;
+            int lpcpForsPnIndex = -1;
+            int lpcpSigipPnIndex = -1;
+            int lpcpVisualPnIndex = -1;
+
+            int a2PartItemNoIndex = -1;
+            int a2NodeIdIndex = -1;
+
             // Load LPCP and A2 CSV files into memory as lists of string arrays (rows), using CsvHelper.ParseLine to split lines into values.
             using (var stream = model.LPCPFile.OpenReadStream())
             using (var reader = new StreamReader(stream))
             {
                 string? line;
 
-                // Skip header
-                await reader.ReadLineAsync(cancellationToken);
+                // Get header and determine column indexes for LEONI part number, FORS PN, SIGIP PN and Visual PN.
+                var headerLine = await reader.ReadLineAsync(cancellationToken);
+                if (!string.IsNullOrEmpty(headerLine))
+                {
+                    var headerRow = CsvHelper.ParseLine(headerLine, ',');
+                    if (headerRow == null)
+                    {
+                        throw new InvalidDataException("LPCP file header is invalid or empty.");
+                    }
 
-                // Read the file line by line asynchronously
+                    for (int i = 0; i < headerRow.Length; i++)
+                    {
+                        switch (headerRow[i].Trim())
+                        {
+                            case "LEONI Part Number":
+                                lpcpLeoniPartIndex = i;
+                                break;
+                            case "FORS Part Number":
+                                lpcpForsPnIndex = i;
+                                break;
+                            case "SIGIP Part Number":
+                                lpcpSigipPnIndex = i;
+                                break;
+                            case "Visual Part Number":
+                                lpcpVisualPnIndex = i;
+                                break;
+                        }
+                    }
+                }
+
+                // throw error if critical column indexes are not found
+                if (lpcpLeoniPartIndex == -1)
+                {
+                    throw new InvalidDataException("LPCP file is missing required column 'LEONI Part No.'.");
+                }
+                if (lpcpForsPnIndex == -1)
+                {
+                    throw new InvalidDataException("LPCP file is missing required column 'FORS PN'.");
+                }
+                if (lpcpSigipPnIndex == -1)
+                {
+                    throw new InvalidDataException("LPCP file is missing required column 'SIGIP PN'.");
+                }
+                if (lpcpVisualPnIndex == -1)
+                {
+                    throw new InvalidDataException("LPCP file is missing required column 'Visual PN'.");
+                }
+
+                // Read data line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
                     var row = CsvHelper.ParseLine(line, ',');
@@ -319,8 +372,40 @@ namespace CSVWorker.Services
             {
                 string? line;
 
-                // Skip header
-                await reader.ReadLineAsync(cancellationToken);
+                // Get header
+                var headerLine = await reader.ReadLineAsync(cancellationToken);
+                if (!string.IsNullOrEmpty(headerLine))
+                {
+                    var headerRow = CsvHelper.ParseLine(headerLine, ',');
+                    if (headerRow == null)
+                    {
+                        throw new InvalidDataException("A2 file header is invalid or empty.");
+                    }
+
+                    for (int i = 0; i < headerRow.Length; i++)
+                    {
+                        switch (headerRow[i].Trim())
+                        {
+                            case "LP":
+                                a2PartItemNoIndex = i;
+                                break;
+                            case "Noeud":
+                                a2NodeIdIndex = i;
+                                break;
+                        }
+                    }
+                }
+
+                // throw error if critical column indexes are not found
+                if (a2PartItemNoIndex == -1)
+                {
+                    throw new InvalidDataException("A2 file is missing required column 'PART/ITEM NO/'.");
+                }
+                if (a2NodeIdIndex == -1)
+                {
+                    throw new InvalidDataException("A2 file is missing required column 'Node ID'.");
+                }
+
 
                 // Read the file line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
@@ -342,7 +427,7 @@ namespace CSVWorker.Services
                 // be cancelled gracefully if needed.
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var leoniPart = row.Length > 0 ? row[0] : null; // Assuming LEONI part number is in the first column (index 0)
+                var leoniPart = row.Length > lpcpLeoniPartIndex ? row[lpcpLeoniPartIndex] : null; // Assuming LEONI part number is in the first column (index 0)
                 if (string.IsNullOrWhiteSpace(leoniPart))
                 {
                     continue;
@@ -372,8 +457,8 @@ namespace CSVWorker.Services
                     continue; // Skip empty rows
                 }
 
-                var partItemNo = a2Row.Length > 0 ? a2Row[0] : null;
-                var nodeId = a2Row.Length > 1 ? a2Row[1] : null;
+                var partItemNo = a2Row.Length > a2PartItemNoIndex ? a2Row[a2PartItemNoIndex] : null;
+                var nodeId = a2Row.Length > a2NodeIdIndex ? a2Row[a2NodeIdIndex] : null;
 
                 if (string.IsNullOrWhiteSpace(nodeId) || string.IsNullOrWhiteSpace(partItemNo))
                 {
@@ -391,9 +476,9 @@ namespace CSVWorker.Services
                         continue; // Skip if LPCP row is unexpectedly empty
                     }
 
-                    forsPn = lpcpRow.Count > 1 ? lpcpRow[1] : string.Empty; // Assuming FORS PN is in the second column (index 1)
-                    sigipPn = lpcpRow.Count > 2 ? lpcpRow[2] : string.Empty; // Assuming SIGIP PN is in the third column (index 2)
-                    visualPn = lpcpRow.Count > 3 ? lpcpRow[3] : string.Empty; // Assuming Visual PN is in the fourth column (index 3)
+                    forsPn = lpcpRow.Count > lpcpForsPnIndex ? lpcpRow[lpcpForsPnIndex] : string.Empty; // Assuming FORS PN is in the second column (index 1)
+                    sigipPn = lpcpRow.Count > lpcpSigipPnIndex ? lpcpRow[lpcpSigipPnIndex] : string.Empty; // Assuming SIGIP PN is in the third column (index 2)
+                    visualPn = lpcpRow.Count > lpcpVisualPnIndex ? lpcpRow[lpcpVisualPnIndex] : string.Empty; // Assuming Visual PN is in the fourth column (index 3)
                 }
 
                 outputRows.Add([nodeId, string.Empty, partItemNo, forsPn, sigipPn, visualPn, string.Empty, string.Empty, string.Empty, string.Empty]);
@@ -401,7 +486,114 @@ namespace CSVWorker.Services
 
             var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRows, ',', cancellationToken);
 
-            _logger.LogInformation("UpdateDatabase finished. Output rows={RowsCount}", outputRows.Count - 1);
+            _logger.LogInformation("UpdateDatabaseIMDS finished. Output rows={RowsCount}", outputRows.Count - 1);
+
+            return outputCsvBytes;
+        }
+
+        public async Task<byte[]> UpdateDatabasePorsche(UpdateDatabasePorscheVM model, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("UpdateDatabasePorsche started. LPCP file={LPCPFileName}", model.LPCPFile?.FileName);
+
+            if (model.LPCPFile == null)
+            {
+                throw new NullReferenceException("Input must not be null. Usually it must be validated in controller before sending to service for processing.");
+            }
+
+            var lpcpDoc = new List<string[]>();
+            int leoniPartIndex = 0;
+            int articleNameIndex = -1;
+            int forsMaterialGroupIndex = -1;
+            int crossSecIndex = -1;
+
+            // Load LPCP
+            using (var stream = model.LPCPFile.OpenReadStream())
+            using (var reader = new StreamReader(stream))
+            {
+                string? line;
+
+                // Get header and determine column indexes for LEONI part number, article name, FORS material group and cross section.
+                var headerLine = await reader.ReadLineAsync(cancellationToken);
+                if (!string.IsNullOrEmpty(headerLine))
+                {
+                    var headerRow = CsvHelper.ParseLine(headerLine, ',');
+                    if (headerRow == null)
+                    {
+                        throw new InvalidDataException("LPCP file header is invalid or empty.");
+                    }
+
+                    for (int i = 0; i < headerRow.Length; i++)
+                    {
+                        switch (headerRow[i].Trim())
+                        {
+                            case "Item- /Mat.-No.":
+                                leoniPartIndex = i;
+                                break;
+                            case "Article Name":
+                                articleNameIndex = i;
+                                break;
+                            case "FORS Material Group":
+                                forsMaterialGroupIndex = i;
+                                break;
+                            case "Cross-Sec (INDIV1)":
+                                crossSecIndex = i;
+                                break;
+                        }
+                    }
+                }
+
+                // throw error if critical column indexes are not found
+                if (leoniPartIndex == -1)
+                {
+                    throw new InvalidDataException("LPCP file is missing required column 'Item- /Mat.-No.'.");
+                }
+                if (articleNameIndex == -1)
+                {
+                    throw new InvalidDataException("LPCP file is missing required column 'Article Name'.");
+                }
+
+                // Read data line by line asynchronously
+                while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+                {
+                    var row = CsvHelper.ParseLine(line, ',');
+                    if (row != null)
+                    {
+                        lpcpDoc.Add(row);
+                    }
+                }
+            }
+
+            // Database output
+            var outputRows = new List<string[]>
+            {
+                (["Item- /Mat.-No.", "Article Name", "FORS Material Group", "Cross-Sec (INDIV1)", "date"])
+            };
+
+            foreach (var lpcpRow in lpcpDoc)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                if (lpcpRow == null || lpcpRow.Length == 0)
+                {
+                    continue; // Skip empty rows
+                }
+
+                var leoniPart = lpcpRow.Length > leoniPartIndex ? lpcpRow[leoniPartIndex] : string.Empty;
+                var articleName = lpcpRow.Length > articleNameIndex ? lpcpRow[articleNameIndex] : string.Empty;
+                var forsMaterialGroup = lpcpRow.Length > forsMaterialGroupIndex && forsMaterialGroupIndex != -1 ? lpcpRow[forsMaterialGroupIndex] : string.Empty;
+                var crossSec = lpcpRow.Length > crossSecIndex && crossSecIndex != -1 ? lpcpRow[crossSecIndex] : string.Empty;
+
+                if (string.IsNullOrWhiteSpace(leoniPart))
+                {
+                    continue; // Skip rows with missing critical data
+                }
+
+                outputRows.Add([leoniPart, articleName, forsMaterialGroup, crossSec, string.Empty]);
+            }
+
+            var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRows, ',', cancellationToken);
+
+            _logger.LogInformation("UpdateDatabasePorsche finished. Output rows={RowsCount}", outputRows.Count - 1);
 
             return outputCsvBytes;
         }
