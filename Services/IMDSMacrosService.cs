@@ -415,19 +415,19 @@ namespace CSVWorker.Services
                 // throw error if critical column indexes are not found
                 if (lpcpLeoniPartIndex == -1)
                 {
-                    throw new InvalidDataException("LPCP file is missing required column 'LEONI Part No.'.");
+                    throw new InvalidDataException("LPCP file is missing required column 'LEONI Part Number'.");
                 }
                 if (lpcpForsPnIndex == -1)
                 {
-                    throw new InvalidDataException("LPCP file is missing required column 'FORS PN'.");
+                    throw new InvalidDataException("LPCP file is missing required column 'FORS Part Number'.");
                 }
                 if (lpcpSigipPnIndex == -1)
                 {
-                    throw new InvalidDataException("LPCP file is missing required column 'SIGIP PN'.");
+                    throw new InvalidDataException("LPCP file is missing required column 'SIGIP Part Number'.");
                 }
                 if (lpcpVisualPnIndex == -1)
                 {
-                    throw new InvalidDataException("LPCP file is missing required column 'Visual PN'.");
+                    throw new InvalidDataException("LPCP file is missing required column 'Visual Part Number'.");
                 }
 
                 // Read data line by line asynchronously
@@ -473,13 +473,12 @@ namespace CSVWorker.Services
                 // throw error if critical column indexes are not found
                 if (a2PartItemNoIndex == -1)
                 {
-                    throw new InvalidDataException("A2 file is missing required column 'PART/ITEM NO/'.");
+                    throw new InvalidDataException("A2 file is missing required column 'LP'.");
                 }
                 if (a2NodeIdIndex == -1)
                 {
-                    throw new InvalidDataException("A2 file is missing required column 'Node ID'.");
+                    throw new InvalidDataException("A2 file is missing required column 'Nœud'.");
                 }
-
 
                 // Read the file line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)

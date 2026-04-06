@@ -113,7 +113,7 @@ namespace CSVWorker.Controllers
             {
                 if (!CsvHelper.IsValidCSV(csvFile))
                 {
-                    model.ErrorMessage = "You have uploaded an invalid csv file";
+                    model.ErrorMessage = $"You have uploaded an invalid csv file named {csvFile.FileName}. Please make sure all uploaded files are valid CSVs.";
                     return View(model);
                 }
             }
