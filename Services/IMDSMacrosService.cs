@@ -79,6 +79,9 @@ namespace CSVWorker.Services
                 // Read the file line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
+                    // remove single and double quotes from line
+                    line = line.Replace("'", string.Empty).Replace("\"", string.Empty);
+
                     var row = CsvHelper.ParseLine(line, delimiter);
                     if (row != null)
                     {
@@ -443,6 +446,9 @@ namespace CSVWorker.Services
                 // Read data line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
+                    // remove single and double quotes from line
+                    line = line.Replace("'", string.Empty).Replace("\"", string.Empty);
+
                     var row = CsvHelper.ParseLine(line, delimiter);
                     if (row != null)
                     {
@@ -450,6 +456,9 @@ namespace CSVWorker.Services
                     }
                 }
             }
+
+            // Number of lines parsed from LPCP
+            _logger.LogInformation("UpdateDatabaseIMDS: Number of lines parsed from LPCP file: {LPCPLinesCount}", lpcpDoc.Count);
 
             using (var stream = model.A2File.OpenReadStream())
             using (var reader = new StreamReader(stream))
@@ -499,6 +508,8 @@ namespace CSVWorker.Services
                 // Read the file line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
+                    line = line.Replace("'", string.Empty).Replace("\"", string.Empty);
+
                     var row = CsvHelper.ParseLine(line, delimiter);
                     if (row != null)
                     {
@@ -506,6 +517,9 @@ namespace CSVWorker.Services
                     }
                 }
             }
+
+            // Number of lines parsed from A2
+            _logger.LogInformation("UpdateDatabaseIMDS: Number of lines parsed from A2 file: {A2LinesCount}", a2Doc.Count);
 
             // Build fast lookup by LEONI part number
             var lpcpByLeoniPart = new Dictionary<string, IReadOnlyList<string>>();
