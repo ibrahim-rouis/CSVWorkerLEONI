@@ -251,6 +251,17 @@ namespace CSVWorker.Services
                 if (databaseByLeoniPart.TryGetValue(partNumber, out var databaseRow))
                 {
                     nodeId = databaseRow.Count() > 0 ? databaseRow[0] : string.Empty; // Assuming Node ID is in the first column (index 0)
+
+                    // if row is found but nodeId is empty, we consider it as missing node, and set nodeId to "#N/A"
+                    // Also add it to missing nodes list
+                    if (string.IsNullOrWhiteSpace(nodeId))
+                    {
+                        if (!hasMissingNodes)
+                            hasMissingNodes = true;
+
+                        nodeId = "#N/A";
+                        missingNodes.Add([partNumber, nodeId]);
+                    }
                 }
                 else
                 {
