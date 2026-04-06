@@ -32,6 +32,27 @@ namespace CSVWorker.Services
             const int forsBomWeightIndex = 11;
             const int forsBomQuantityIndex = 4;
 
+            // RS (Semi-Components / Materials / Rohstoff)
+            List<string> rsMaterialGroups = new List<string>
+                {
+                    "SCHL", "KFT", "LTG", "BAND", "KAB", "WUD",
+                    "FOL", "PUH", "HFA", "GLU", "GRA", "HAERT", "HARZ", "LWL",
+                    "SLTG", "LOE", "SCHRU", "DOK", "FFC", "ZINN", "GS", "REST"
+                };
+            // RC (Discrete Components / Rüst Component)
+            List<string> rcMaterialGroups = new List<string>
+                {
+                    "CKONT", "GEH", "CLIP", "BLIND", "EDICH", "TUELL", "RELAY", "VERB",
+                    "VKONT", "KB", "EBOX", "KK", "BUSB", "ELK", "LKONT", "SCH",
+                    "SKAP", "VMECH", "BATKL", "SICH", "SWIT", "OKONT", "SKONT", "FPCB",
+                    "ETI", "APT"
+                };
+
+            // Indicators for rows to skip
+            // "Partnumber" in column 0 usually indicates header.
+            // "Total", "Summe", etc usually indicate summary rows that should be skipped.
+            string[] skipIndicators = new[] { "Partnumber", "Total", "Overall total", "Summe", "Gesamtsumme" };
+
             // Load Database CSV
             var database = new List<string[]>();
             using (var stream = model.DatabaseCSV.OpenReadStream())
@@ -75,9 +96,11 @@ namespace CSVWorker.Services
             // Metadata
             string productNumber = string.Empty;
 
-            // Materials
+            /** Materials **/
+            // RS materials
             var cablesAndTapes = new List<string[]>();
-            var connectors = new List<string[]>();
+            // RC materials
+            var rcMaterials = new List<string[]>();
 
             // Missing nodes
             // Will be exported to "missing_nodes.csv"
@@ -125,27 +148,23 @@ namespace CSVWorker.Services
                             }
                             else if (row.Length >= 12)
                             {
-                                // Skip header
-                                if (row[0] == "Partnumber")
-                                    continue;
-
-                                // Skip rows that has "Total"
-                                if (row[1] == "Total")
+                                // Skip header or rows that has "Total", "Summe", etc
+                                if (skipIndicators.Contains(row[0]) || skipIndicators.Contains(row[1]))
                                     continue;
 
                                 // Skip row that has "Overall total"
                                 if (row[1] == "Overall total")
                                     continue;
 
-                                // Cables and tapes have "BAND", "FOL", "LTG" or "SLTG" in column 4 (index 3)
-                                if (row[forsBomMaterialGroupIndex] is "BAND" or "FOL" or "LTG" or "SLTG")
+                                // Cables and tapes
+                                if (rsMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
                                 {
                                     cablesAndTapes.Add(row);
                                 }
-                                // Connectors have "BLIND", "CKONT", "EDICH", "GEH" or "KB" in column 4 (index 3)
-                                else if (row[forsBomMaterialGroupIndex] is "BLIND" or "CKONT" or "EDICH" or "GEH" or "KB")
+                                // Connectors
+                                else if (rcMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
                                 {
-                                    connectors.Add(row);
+                                    rcMaterials.Add(row);
                                 }
                             }
                         }
@@ -213,7 +232,7 @@ namespace CSVWorker.Services
             }
 
             // Add connectors to IMDS output
-            foreach (var row in connectors)
+            foreach (var row in rcMaterials)
             {
                 var partNumber = row[forsBomPartNumberIndex];
                 var quantity = row[forsBomQuantityIndex].Replace(',', '.'); // IMDS expects '.' as decimal separator
@@ -245,11 +264,17 @@ namespace CSVWorker.Services
                 outputRow.Add([productNumber, partNumber, partNumber, quantity, string.Empty, string.Empty, string.Empty, "RC", nodeId, string.Empty, string.Empty]);
             }
 
-            // Finish IMDS output
+            // 
             outputRow.Add(["MDS_END", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
+
+            // I don't know why the original macro leaves 3 empty rows before "END", 
+            // but to keep the output consistent with the original macro, 
+            // I will also add 3 empty rows before "END".
             outputRow.Add([string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
             outputRow.Add([string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
             outputRow.Add([string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
+
+            // END row
             outputRow.Add(["END", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
 
             /** End of IMDS Output Construction **/
