@@ -69,12 +69,17 @@ namespace CSVWorker.Services
                 string? line;
 
                 // Skip header
-                await reader.ReadLineAsync(cancellationToken);
+                var header = await reader.ReadLineAsync(cancellationToken);
+                if (string.IsNullOrEmpty(header))
+                {
+                    throw new InvalidDataException("Database CSV file header is invalid or empty.");
+                }
+                var delimiter = CsvHelper.DetectDelimiter(header);
 
                 // Read the file line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
-                    var row = CsvHelper.ParseLine(line, ',');
+                    var row = CsvHelper.ParseLine(line, delimiter);
                     if (row != null)
                     {
                         database.Add(row);
@@ -341,7 +346,7 @@ namespace CSVWorker.Services
                     var missingNodesFileEntry = archive.CreateEntry(missingNodesFileName);
                     await using (var entryStream2 = missingNodesFileEntry.Open())
                     {
-                        var missingNodesOuputBytes = await CsvHelper.ConvertListToCsv(missingNodes, ',', cancellationToken);
+                        var missingNodesOuputBytes = await CsvHelper.ConvertListToCsv(missingNodes, ';', cancellationToken);
                         await entryStream2.WriteAsync(missingNodesOuputBytes, cancellationToken);
                         await entryStream2.FlushAsync(cancellationToken);
                     }
@@ -384,31 +389,36 @@ namespace CSVWorker.Services
 
                 // Get header and determine column indexes for LEONI part number, FORS PN, SIGIP PN and Visual PN.
                 var headerLine = await reader.ReadLineAsync(cancellationToken);
-                if (!string.IsNullOrEmpty(headerLine))
-                {
-                    var headerRow = CsvHelper.ParseLine(headerLine, ',');
-                    if (headerRow == null)
-                    {
-                        throw new InvalidDataException("LPCP file header is invalid or empty.");
-                    }
 
-                    for (int i = 0; i < headerRow.Length; i++)
+                if (string.IsNullOrEmpty(headerLine))
+                {
+                    throw new InvalidDataException("LPCP file header is invalid or empty.");
+                }
+
+                var delimiter = CsvHelper.DetectDelimiter(headerLine);
+
+                var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
+                if (headerRow == null || headerRow.Length == 0)
+                {
+                    throw new InvalidDataException("LPCP file header is invalid or empty.");
+                }
+
+                for (int i = 0; i < headerRow.Length; i++)
+                {
+                    switch (headerRow[i].Trim())
                     {
-                        switch (headerRow[i].Trim())
-                        {
-                            case "LEONI Part Number":
-                                lpcpLeoniPartIndex = i;
-                                break;
-                            case "FORS Part Number":
-                                lpcpForsPnIndex = i;
-                                break;
-                            case "SIGIP Part Number":
-                                lpcpSigipPnIndex = i;
-                                break;
-                            case "Visual Part Number":
-                                lpcpVisualPnIndex = i;
-                                break;
-                        }
+                        case "LEONI Part Number":
+                            lpcpLeoniPartIndex = i;
+                            break;
+                        case "FORS Part Number":
+                            lpcpForsPnIndex = i;
+                            break;
+                        case "SIGIP Part Number":
+                            lpcpSigipPnIndex = i;
+                            break;
+                        case "Visual Part Number":
+                            lpcpVisualPnIndex = i;
+                            break;
                     }
                 }
 
@@ -433,7 +443,7 @@ namespace CSVWorker.Services
                 // Read data line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
-                    var row = CsvHelper.ParseLine(line, ',');
+                    var row = CsvHelper.ParseLine(line, delimiter);
                     if (row != null)
                     {
                         lpcpDoc.Add(row);
@@ -448,27 +458,33 @@ namespace CSVWorker.Services
 
                 // Get header
                 var headerLine = await reader.ReadLineAsync(cancellationToken);
-                if (!string.IsNullOrEmpty(headerLine))
-                {
-                    var headerRow = CsvHelper.ParseLine(headerLine, ',');
-                    if (headerRow == null)
-                    {
-                        throw new InvalidDataException("A2 file header is invalid or empty.");
-                    }
 
-                    for (int i = 0; i < headerRow.Length; i++)
+                if (string.IsNullOrEmpty(headerLine))
+                {
+                    throw new InvalidDataException("A2 file header is invalid or empty.");
+                }
+
+                var delimiter = CsvHelper.DetectDelimiter(headerLine);
+
+                var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
+                if (headerRow == null || headerRow.Length == 0)
+                {
+                    throw new InvalidDataException("A2 file header is invalid or empty.");
+                }
+
+                for (int i = 0; i < headerRow.Length; i++)
+                {
+                    switch (headerRow[i].Trim())
                     {
-                        switch (headerRow[i].Trim())
-                        {
-                            case "LP":
-                                a2PartItemNoIndex = i;
-                                break;
-                            case "Noeud" or "Nœud":
-                                a2NodeIdIndex = i;
-                                break;
-                        }
+                        case "LP":
+                            a2PartItemNoIndex = i;
+                            break;
+                        case "Noeud" or "Nœud":
+                            a2NodeIdIndex = i;
+                            break;
                     }
                 }
+
 
                 // throw error if critical column indexes are not found
                 if (a2PartItemNoIndex == -1)
@@ -483,7 +499,7 @@ namespace CSVWorker.Services
                 // Read the file line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
-                    var row = CsvHelper.ParseLine(line, ',');
+                    var row = CsvHelper.ParseLine(line, delimiter);
                     if (row != null)
                     {
                         a2Doc.Add(row);
@@ -557,7 +573,7 @@ namespace CSVWorker.Services
                 outputRows.Add([nodeId, string.Empty, partItemNo, forsPn, sigipPn, visualPn, string.Empty, string.Empty, string.Empty, string.Empty]);
             }
 
-            var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRows, ',', cancellationToken);
+            var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRows, ';', cancellationToken);
 
             _logger.LogInformation("UpdateDatabaseIMDS finished. Output rows={RowsCount}", outputRows.Count - 1);
 
@@ -587,33 +603,38 @@ namespace CSVWorker.Services
 
                 // Get header and determine column indexes for LEONI part number, article name, FORS material group and cross section.
                 var headerLine = await reader.ReadLineAsync(cancellationToken);
-                if (!string.IsNullOrEmpty(headerLine))
+                if (string.IsNullOrEmpty(headerLine))
                 {
-                    var headerRow = CsvHelper.ParseLine(headerLine, ',');
-                    if (headerRow == null)
-                    {
-                        throw new InvalidDataException("LPCP file header is invalid or empty.");
-                    }
+                    throw new InvalidDataException("LPCP file header is invalid or empty.");
+                }
 
-                    for (int i = 0; i < headerRow.Length; i++)
+                var delimiter = CsvHelper.DetectDelimiter(headerLine);
+
+                var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
+                if (headerRow == null || headerRow.Length == 0)
+                {
+                    throw new InvalidDataException("LPCP file header is invalid or empty.");
+                }
+
+                for (int i = 0; i < headerRow.Length; i++)
+                {
+                    switch (headerRow[i].Trim())
                     {
-                        switch (headerRow[i].Trim())
-                        {
-                            case "Item- /Mat.-No.":
-                                leoniPartIndex = i;
-                                break;
-                            case "Article Name":
-                                articleNameIndex = i;
-                                break;
-                            case "FORS Material Group":
-                                forsMaterialGroupIndex = i;
-                                break;
-                            case "Cross-Sec (INDIV1)":
-                                crossSecIndex = i;
-                                break;
-                        }
+                        case "Item- /Mat.-No.":
+                            leoniPartIndex = i;
+                            break;
+                        case "Article Name":
+                            articleNameIndex = i;
+                            break;
+                        case "FORS Material Group":
+                            forsMaterialGroupIndex = i;
+                            break;
+                        case "Cross-Sec (INDIV1)":
+                            crossSecIndex = i;
+                            break;
                     }
                 }
+
 
                 // throw error if critical column indexes are not found
                 if (leoniPartIndex == -1)
@@ -628,7 +649,7 @@ namespace CSVWorker.Services
                 // Read data line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
-                    var row = CsvHelper.ParseLine(line, ',');
+                    var row = CsvHelper.ParseLine(line, delimiter);
                     if (row != null)
                     {
                         lpcpDoc.Add(row);
@@ -664,7 +685,7 @@ namespace CSVWorker.Services
                 outputRows.Add([leoniPart, articleName, forsMaterialGroup, crossSec, string.Empty]);
             }
 
-            var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRows, ',', cancellationToken);
+            var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRows, ';', cancellationToken);
 
             _logger.LogInformation("UpdateDatabasePorsche finished. Output rows={RowsCount}", outputRows.Count - 1);
 

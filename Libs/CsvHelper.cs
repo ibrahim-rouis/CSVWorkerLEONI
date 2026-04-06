@@ -59,5 +59,42 @@ namespace CSVWorker.Libs
             await streamWriter.FlushAsync(cancellationToken);
             return memoryStream.ToArray();
         }
+
+        /// <summary>
+        /// Detects the delimiter used in a given line of CSV data by counting the occurrences of common delimiters (comma and semicolon) while ignoring delimiters that are enclosed within quotes. If the line is null or whitespace, it returns a specified fallback delimiter.
+        /// </summary>
+        /// <param name="line"></param>
+        /// <param name="fallback"></param>
+        /// <returns></returns>
+        public static char DetectDelimiter(string? line, char fallback = ',')
+        {
+            if (string.IsNullOrWhiteSpace(line))
+            {
+                return fallback;
+            }
+
+            int commaCount = 0;
+            int semicolonCount = 0;
+            bool inQuotes = false;
+
+            foreach (var ch in line)
+            {
+                if (ch == '"')
+                {
+                    inQuotes = !inQuotes;
+                    continue;
+                }
+
+                if (inQuotes) continue;
+
+                if (ch == ',') commaCount++;
+                else if (ch == ';') semicolonCount++;
+            }
+
+            if (semicolonCount > commaCount) return ';';
+            if (commaCount > semicolonCount) return ',';
+
+            return fallback;
+        }
     }
 }
