@@ -13,6 +13,7 @@
           document.write(new Date().getFullYear());
         </script>
         , made by <a href="@TempData.Peek("authorUrl")" target="_blank" class="footer-link">@TempData.Peek("authorName")</a>
+        <span class="text-secondary"> , Version number @TempData.Peek("version")</span>
       </div>
             <div class="d-none d-lg-inline-block" data-bs-toggle="tooltip" title="@TempData.Peek("themeSelectionUrlReason")">
                 Thanks ❤️ <a href="@TempData.Peek("themeSelectionUrl")" target="_blank" class="footer-link">@TempData.Peek("themeSelectionName")</a>

@@ -24,7 +24,7 @@
                         <input asp-for="A2File" type="file" class="form-control" accept=".csv,text/csv" required />
                         <span asp-validation-for="A2File" class="text-danger"></span>
                     </div>
-                    <button type="submit" class="btn btn-primary">Start</button>
+                    <button type="submit" class="btn btn-primary btn-lg px-10">Start</button>
 
                     @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
                     {
