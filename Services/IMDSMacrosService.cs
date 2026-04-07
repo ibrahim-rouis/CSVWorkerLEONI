@@ -79,8 +79,11 @@ namespace CSVWorker.Services
                 // Read the file line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
-                    // remove single and double quotes from line
-                    line = line.Replace("'", string.Empty).Replace("\"", string.Empty);
+                    // skip lines that have single and double quotes from line
+                    if (line.Contains("'") || line.Contains("\""))
+                    {
+                        continue;
+                    }
 
                     var row = CsvHelper.ParseLine(line, delimiter);
                     if (row != null)
@@ -379,12 +382,15 @@ namespace CSVWorker.Services
             int lpcpForsPnIndex = -1;
             int lpcpSigipPnIndex = -1;
             int lpcpVisualPnIndex = -1;
+            int lpcpWGKIndex = -1;
 
-            // A2 headers indexes - we will determine the actual indexes dynamically at runtime by reading the header row.
-            int a2PartItemNoIndex = -1;
-            int a2NodeIdIndex = -1;
+            // A2 headers indexes
+            const int a2LPIndex = 0;
+            const int a2NodeIdIndex = 1;
 
             // Load LPCP and A2 CSV files into memory as lists of string arrays (rows), using CsvHelper.ParseLine to split lines into values.
+
+            // Load LPCP
             using (var stream = model.LPCPFile.OpenReadStream())
             using (var reader = new StreamReader(stream))
             {
@@ -422,6 +428,9 @@ namespace CSVWorker.Services
                         case "Visual Part Number":
                             lpcpVisualPnIndex = i;
                             break;
+                        case "WGK":
+                            lpcpWGKIndex = i;
+                            break;
                     }
                 }
 
@@ -442,18 +451,21 @@ namespace CSVWorker.Services
                 {
                     throw new InvalidDataException("LPCP file is missing required column 'Visual Part Number'.");
                 }
+                if (lpcpWGKIndex == -1)
+                {
+                    throw new InvalidDataException("LPCP file is missing required column 'WGK'.");
+                }
 
                 // Read data line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
-                    // remove single and double quotes from line
-                    line = line.Replace("'", string.Empty).Replace("\"", string.Empty);
-
                     var row = CsvHelper.ParseLine(line, delimiter);
+
                     if (row != null)
                     {
                         lpcpDoc.Add(row);
                     }
+
                 }
             }
 
@@ -480,40 +492,37 @@ namespace CSVWorker.Services
                 {
                     throw new InvalidDataException("A2 file header is invalid or empty.");
                 }
-
-                for (int i = 0; i < headerRow.Length; i++)
+                else if (headerRow.Length <= Math.Max(a2LPIndex, a2NodeIdIndex))
                 {
-                    switch (headerRow[i].Trim())
-                    {
-                        case "LP":
-                            a2PartItemNoIndex = i;
-                            break;
-                        case "Noeud" or "Nœud":
-                            a2NodeIdIndex = i;
-                            break;
-                    }
-                }
-
-
-                // throw error if critical column indexes are not found
-                if (a2PartItemNoIndex == -1)
-                {
-                    throw new InvalidDataException("A2 file is missing required column 'LP'.");
-                }
-                if (a2NodeIdIndex == -1)
-                {
-                    throw new InvalidDataException("A2 file is missing required column 'Nœud'.");
+                    throw new InvalidDataException("A2 header does not contain required columns for 'LP' and 'Noeud'.");
                 }
 
                 // Read the file line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                 {
-                    line = line.Replace("'", string.Empty).Replace("\"", string.Empty);
-
                     var row = CsvHelper.ParseLine(line, delimiter);
                     if (row != null)
                     {
-                        a2Doc.Add(row);
+                        // Handle special cases where line is like: "PXXX;PXXX";NODEIDXXX
+                        if (row[0].Contains(";"))
+                        {
+                            var multiparts = row[0].Trim('\"').Trim().Split(';');
+                            if (multiparts.Length > 0)
+                            {
+                                foreach (var part in multiparts)
+                                {
+                                    if (string.IsNullOrWhiteSpace(part))
+                                    {
+                                        continue; // Skip empty part numbers
+                                    }
+                                    a2Doc.Add(new string[] { part.Trim(), row.Length > 1 ? row[1] : string.Empty });
+                                }
+                            }
+                        }
+                        else
+                        {
+                            a2Doc.Add(row);
+                        }
                     }
                 }
             }
@@ -521,25 +530,25 @@ namespace CSVWorker.Services
             // Number of lines parsed from A2
             _logger.LogInformation("UpdateDatabaseIMDS: Number of lines parsed from A2 file: {A2LinesCount}", a2Doc.Count);
 
-            // Build fast lookup by LEONI part number
-            var lpcpByLeoniPart = new Dictionary<string, IReadOnlyList<string>>();
-            foreach (var row in lpcpDoc)
+            // Build fast lookup for A2 rows by LP
+            var a2ByLP = new Dictionary<string, IReadOnlyList<string>>();
+            foreach (var row in a2Doc)
             {
                 // It is useful to check for cancellation inside long-running loops, 
                 // especially when processing large files, to allow the operation to 
                 // be cancelled gracefully if needed.
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var leoniPart = row.Length > lpcpLeoniPartIndex ? row[lpcpLeoniPartIndex] : null; // Assuming LEONI part number is in the first column (index 0)
-                if (string.IsNullOrWhiteSpace(leoniPart))
+                var LP = row.Length > a2LPIndex ? row[a2LPIndex] : null; // Assuming LP is in the first column (index 0)
+                if (string.IsNullOrWhiteSpace(LP))
                 {
                     continue;
                 }
 
                 // If there are duplicate LEONI part numbers, we keep the first one and ignore subsequent duplicates.
-                if (!lpcpByLeoniPart.ContainsKey(leoniPart))
+                if (!a2ByLP.ContainsKey(LP))
                 {
-                    lpcpByLeoniPart[leoniPart] = row;
+                    a2ByLP[LP] = row;
                 }
             }
 
@@ -551,40 +560,80 @@ namespace CSVWorker.Services
 
             // For each A2 row, find matching LPCP row by LP/LEONI part number,
             // then build output row with enriched data. If no match, just keep A2 data with empty enrichment.
-            foreach (var a2Row in a2Doc)
+            foreach (var row in lpcpDoc)
             {
                 cancellationToken.ThrowIfCancellationRequested();
 
-                if (a2Row == null || a2Row.Length == 0)
+                if (row == null || row.Length == 0)
                 {
                     continue; // Skip empty rows
                 }
 
-                var partItemNo = a2Row.Length > a2PartItemNoIndex ? a2Row[a2PartItemNoIndex] : null;
-                var nodeId = a2Row.Length > a2NodeIdIndex ? a2Row[a2NodeIdIndex] : null;
+                var partNumber = row.Length > lpcpLeoniPartIndex ? row[lpcpLeoniPartIndex] : string.Empty;
+                var forsPn = row.Length > lpcpForsPnIndex ? row[lpcpForsPnIndex] : string.Empty;
+                var sigipPn = row.Length > lpcpSigipPnIndex ? row[lpcpSigipPnIndex] : string.Empty;
+                var visualPn = row.Length > lpcpVisualPnIndex ? row[lpcpVisualPnIndex] : string.Empty;
+                var wgk = row.Length > lpcpWGKIndex ? row[lpcpWGKIndex] : string.Empty;
 
-                if (string.IsNullOrWhiteSpace(nodeId) || string.IsNullOrWhiteSpace(partItemNo))
+                // if all are empty, skip the row
+                if (string.IsNullOrWhiteSpace(partNumber) && string.IsNullOrWhiteSpace(forsPn) && string.IsNullOrWhiteSpace(sigipPn) && string.IsNullOrWhiteSpace(visualPn) && string.IsNullOrWhiteSpace(wgk))
                 {
-                    continue; // Skip rows with missing critical data
+                    continue;
                 }
 
-                var forsPn = string.Empty;
-                var sigipPn = string.Empty;
-                var visualPn = string.Empty;
+                var nodeId = string.Empty; // Default value if not found
 
-                if (!string.IsNullOrWhiteSpace(partItemNo) && lpcpByLeoniPart.TryGetValue(partItemNo, out var lpcpRow))
+                // Lookup for Node ID by part number
+                if (!string.IsNullOrWhiteSpace(partNumber) && string.IsNullOrEmpty(nodeId) && a2ByLP.TryGetValue(partNumber, out var a2Row))
                 {
-                    if (lpcpRow == null || lpcpRow.Count == 0)
+                    if (a2Row == null || a2Row.Count < a2NodeIdIndex + 1)
                     {
-                        continue; // Skip if LPCP row is unexpectedly empty
+                        continue; // Skip if A2 row is unexpectedly empty or missing Node ID column
                     }
-
-                    forsPn = lpcpRow.Count > lpcpForsPnIndex ? lpcpRow[lpcpForsPnIndex] : string.Empty; // Assuming FORS PN is in the second column (index 1)
-                    sigipPn = lpcpRow.Count > lpcpSigipPnIndex ? lpcpRow[lpcpSigipPnIndex] : string.Empty; // Assuming SIGIP PN is in the third column (index 2)
-                    visualPn = lpcpRow.Count > lpcpVisualPnIndex ? lpcpRow[lpcpVisualPnIndex] : string.Empty; // Assuming Visual PN is in the fourth column (index 3)
+                    nodeId = a2Row[a2NodeIdIndex];
                 }
 
-                outputRows.Add([nodeId, string.Empty, partItemNo, forsPn, sigipPn, visualPn, string.Empty, string.Empty, string.Empty, string.Empty]);
+                // Lookup for Node ID by forsPn
+                if (!string.IsNullOrWhiteSpace(forsPn) && string.IsNullOrEmpty(nodeId) && a2ByLP.TryGetValue(forsPn, out var a2Row2))
+                {
+                    if (a2Row2 == null || a2Row2.Count < a2NodeIdIndex + 1)
+                    {
+                        continue; // Skip if A2 row is unexpectedly empty or missing Node ID column
+                    }
+                    nodeId = a2Row2[a2NodeIdIndex];
+                }
+
+                // lookup for Node ID by sigipPn
+                if (!string.IsNullOrWhiteSpace(sigipPn) && string.IsNullOrEmpty(nodeId) && a2ByLP.TryGetValue(sigipPn, out var a2Row3))
+                {
+                    if (a2Row3 == null || a2Row3.Count < a2NodeIdIndex + 1)
+                    {
+                        continue; // Skip if A2 row is unexpectedly empty or missing Node ID column
+                    }
+                    nodeId = a2Row3[a2NodeIdIndex];
+                }
+
+                // lookup for Node ID by visualPn
+                if (!string.IsNullOrWhiteSpace(visualPn) && string.IsNullOrEmpty(nodeId) && a2ByLP.TryGetValue(visualPn, out var a2Row4))
+                {
+                    if (a2Row4 == null || a2Row4.Count < a2NodeIdIndex + 1)
+                    {
+                        continue; // Skip if A2 row is unexpectedly empty or missing Node ID column
+                    }
+                    nodeId = a2Row4[a2NodeIdIndex];
+                }
+
+                // looup for Node ID by wgk
+                if (!string.IsNullOrWhiteSpace(wgk) && string.IsNullOrEmpty(nodeId) && a2ByLP.TryGetValue(wgk, out var a2Row5))
+                {
+                    if (a2Row5 == null || a2Row5.Count < a2NodeIdIndex + 1)
+                    {
+                        continue; // Skip if A2 row is unexpectedly empty or missing Node ID column
+                    }
+                    nodeId = a2Row5[a2NodeIdIndex];
+                }
+
+                outputRows.Add([nodeId, string.Empty, partNumber, forsPn, sigipPn, visualPn, wgk, string.Empty, string.Empty, string.Empty]);
             }
 
             var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRows, ';', cancellationToken);
