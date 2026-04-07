@@ -348,6 +348,10 @@ namespace CSVWorker.Services
                 // and will contain two columns: "PART/ITEM NO/" and "Node ID".
                 if (hasMissingNodes)
                 {
+                    // first remove rows with duplicate part numbers in missingNodes, keeping only the first occurrence.
+                    missingNodes = missingNodes.DistinctBy(row => row[0]).ToList();
+
+                    // Add missing_nodes.csv to ZIP archive
                     var missingNodesFileName = "missing_nodes.csv";
                     var missingNodesFileEntry = archive.CreateEntry(missingNodesFileName);
                     await using (var entryStream2 = missingNodesFileEntry.Open())
