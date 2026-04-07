@@ -1,3 +1,5 @@
+using System.Text;
+
 namespace CSVWorker.Libs
 {
     public static class CsvHelper
@@ -31,11 +33,46 @@ namespace CSVWorker.Libs
         /// <param name="row">The line of CSV data to parse.</param>
         /// <param name="delimiter">The delimiter to use for splitting the line.</param>
         /// <returns>An array of strings representing the values in the CSV row, or null if the row is empty or whitespace.</returns>
-        public static string[]? ParseLine(string row, char delimiter = ',')
+        public static string[]? ParseLine(string row, char delimiter = ';')
         {
             if (string.IsNullOrWhiteSpace(row)) return null;
 
-            return row.Split(delimiter);
+            /** 
+            * replace delimter inside quotes with a  
+            * placeholder character to avoid splitting on it, 
+            * then split and restore the placeholder back.
+            * NOTE: some values inside quotes have ; or , inside it, 
+            * which is the delimiter we use to split values, 
+            * this is common in CSV files and we have to handle it.
+            **/
+            var placeholder = "<<<DELIM>>>";
+            var inQuotes = false;
+            var sb = new StringBuilder();
+            foreach (var ch in row)
+            {
+                if (ch == '"')
+                {
+                    inQuotes = !inQuotes;
+                    sb.Append(ch);
+                }
+                else if (ch == delimiter && inQuotes)
+                {
+                    sb.Append(placeholder);
+                }
+                else
+                {
+                    sb.Append(ch);
+                }
+            }
+
+            // split on the delimiter and 
+            // replace placeholders back to the original delimiter
+            var values = sb.ToString()
+                .Split(delimiter)
+                .Select(s => s.Replace(placeholder, delimiter.ToString()))
+                .ToArray();
+
+            return values;
         }
 
         /// <summary>
@@ -66,7 +103,7 @@ namespace CSVWorker.Libs
         /// <param name="line"></param>
         /// <param name="fallback"></param>
         /// <returns></returns>
-        public static char DetectDelimiter(string? line, char fallback = ',')
+        public static char DetectDelimiter(string? line, char fallback = ';')
         {
             if (string.IsNullOrWhiteSpace(line))
             {
