@@ -383,12 +383,16 @@ namespace CSVWorker.Services
 
             // Load LPCP
             using (var stream = model.LPCPFile.OpenReadStream())
-            using (var reader = new StreamReader(stream))
+            using (var readerRaw = new StreamReader(stream))
             {
-                string? line;
+                var csvString = await readerRaw.ReadToEndAsync(cancellationToken);
+
+                var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
+
+                using var normalizedReader = new StringReader(normalizedCsvString);
 
                 // Get header and determine column indexes for LEONI part number, FORS PN, SIGIP PN and Visual PN.
-                var headerLine = await reader.ReadLineAsync(cancellationToken);
+                var headerLine = await normalizedReader.ReadLineAsync(cancellationToken);
 
                 if (string.IsNullOrEmpty(headerLine))
                 {
@@ -410,7 +414,8 @@ namespace CSVWorker.Services
                 lpcpWGKIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "WGK" });
 
                 // Read data line by line asynchronously
-                while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+                string? line;
+                while ((line = await normalizedReader.ReadLineAsync(cancellationToken)) != null)
                 {
                     var row = CsvHelper.ParseLine(line, delimiter);
 
@@ -425,13 +430,16 @@ namespace CSVWorker.Services
             // Number of lines parsed from LPCP
             _logger.LogInformation("UpdateDatabaseIMDS: Number of lines parsed from LPCP file: {LPCPLinesCount}", lpcpDoc.Count);
 
+            // Load A2
             using (var stream = model.A2File.OpenReadStream())
             using (var reader = new StreamReader(stream))
             {
-                string? line;
+                var csvString = await reader.ReadToEndAsync(cancellationToken);
+                var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
+                using var normalizedReader = new StringReader(normalizedCsvString);
 
                 // Get header
-                var headerLine = await reader.ReadLineAsync(cancellationToken);
+                var headerLine = await normalizedReader.ReadLineAsync(cancellationToken);
 
                 if (string.IsNullOrEmpty(headerLine))
                 {
@@ -450,7 +458,9 @@ namespace CSVWorker.Services
                 a2NodeIdIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Noeud", "Nœud", "Node ID" });
 
                 // Read the file line by line asynchronously
-                while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+                string? line;
+
+                while ((line = await normalizedReader.ReadLineAsync(cancellationToken)) != null)
                 {
                     var row = CsvHelper.ParseLine(line, delimiter);
                     if (row != null)

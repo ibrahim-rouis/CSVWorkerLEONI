@@ -37,23 +37,27 @@ namespace CSVWorker.Libs
         {
             if (string.IsNullOrWhiteSpace(row)) return null;
 
-            /** 
-            * replace delimter inside quotes with a  
-            * placeholder character to avoid splitting on it, 
-            * then split and restore the placeholder back.
-            * NOTE: some values inside quotes have ; or , inside it, 
-            * which is the delimiter we use to split values, 
-            * this is common in CSV files and we have to handle it.
-            **/
             var placeholder = "<<<DELIM>>>";
             var inQuotes = false;
             var sb = new StringBuilder();
-            foreach (var ch in row)
+
+            for (int i = 0; i < row.Length; i++)
             {
+                var ch = row[i];
+
                 if (ch == '"')
                 {
-                    inQuotes = !inQuotes;
-                    sb.Append(ch);
+                    // Escaped quote inside quoted value ("")
+                    if (inQuotes && i + 1 < row.Length && row[i + 1] == '"')
+                    {
+                        sb.Append("\"\"");
+                        i++;
+                    }
+                    else
+                    {
+                        inQuotes = !inQuotes;
+                        sb.Append(ch);
+                    }
                 }
                 else if (ch == delimiter && inQuotes)
                 {
@@ -65,14 +69,63 @@ namespace CSVWorker.Libs
                 }
             }
 
-            // split on the delimiter and 
-            // replace placeholders back to the original delimiter
             var values = sb.ToString()
                 .Split(delimiter)
+                .Select(s => s.Trim())
                 .Select(s => s.Replace(placeholder, delimiter.ToString()))
+                .Select(s =>
+                {
+                    if (s.Length >= 2 && s[0] == '"' && s[^1] == '"')
+                    {
+                        s = s[1..^1];
+                    }
+
+                    // Convert CSV escaped quotes back to literal quotes
+                    return s.Replace("\"\"", "\"");
+                })
                 .ToArray();
 
             return values;
+        }
+
+        // Normalize CSV string by replacing all types of newlines inside quotes with a single newline character
+        // This should fix rows split into multiple lines due to newlines inside quoted values, which is a common issue in CSV files.
+        public static string NormalizeCsvString(string csvContent)
+        {
+            var inQuotes = false;
+            var sb = new StringBuilder();
+
+            for (int i = 0; i < csvContent.Length; i++)
+            {
+                var ch = csvContent[i];
+
+                if (ch == '"')
+                {
+                    if (inQuotes && i + 1 < csvContent.Length && csvContent[i + 1] == '"')
+                    {
+                        sb.Append("\"\"");
+                        i++;
+                    }
+                    else
+                    {
+                        inQuotes = !inQuotes;
+                        sb.Append(ch);
+                    }
+                }
+                else if (inQuotes && (ch == '\r' || ch == '\n'))
+                {
+                    if (ch == '\r' && i + 1 < csvContent.Length && csvContent[i + 1] == '\n')
+                        i++;
+
+                    sb.Append(' ');
+                }
+                else
+                {
+                    sb.Append(ch);
+                }
+            }
+
+            return sb.ToString();
         }
 
         /// <summary>
@@ -91,10 +144,31 @@ namespace CSVWorker.Libs
 
             foreach (var row in data)
             {
-                // Throw if cancellation is requested to allow cooperative cancellation of the operation.
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var escaped = row.Select(cell => EscapeCsvCell(cell, delimiter));
+                var escaped = row.Select(cell =>
+                {
+                    var value = cell ?? string.Empty;
+                    var containsSpecialChars =
+                        value.Contains('"') ||
+                        value.Contains(delimiter) ||
+                        value.Contains('\n') ||
+                        value.Contains('\r');
+
+                    if (!containsSpecialChars)
+                    {
+                        return value;
+                    }
+
+                    // CSV escaping: double internal quotes, then wrap in quotes.
+                    var escapedValue = value.Replace("\"", "\"\"");
+
+                    // remove newlines and carriage returns to prevent breaking the CSV format
+                    escapedValue = escapedValue.Replace("\n", " ").Replace("\r", " ");
+
+                    return $"\"{escapedValue}\"";
+                });
+
                 var line = string.Join(delimiter, escaped);
                 await streamWriter.WriteLineAsync(line);
             }
@@ -228,28 +302,6 @@ namespace CSVWorker.Libs
                 }
             }
             return dict;
-        }
-
-        private static string EscapeCsvCell(string? value, char delimiter)
-        {
-            if (value is null)
-            {
-                return string.Empty;
-            }
-
-            var mustQuote =
-                value.Contains(delimiter) ||
-                value.Contains('"') ||
-                value.Contains('\r') ||
-                value.Contains('\n');
-
-            if (!mustQuote)
-            {
-                return value;
-            }
-
-            var escapedQuotes = value.Replace("\"", "\"\"");
-            return "\"" + escapedQuotes + "\"";
         }
     }
 }
