@@ -133,5 +133,95 @@ namespace CSVWorker.Libs
 
             return fallback;
         }
+
+        /// <summary>
+        /// Searches for the index of a required column in the header of a CSV file 
+        /// by checking for multiple possible names (case-insensitive) and returns the index if found. 
+        /// If none of the possible names are found and no fallback index is provided, it throws an exception. 
+        /// If a fallback index is provided but is out of bounds, it also throws an exception. 
+        /// Otherwise, it returns the fallback index.
+        /// </summary>
+        /// <param name="header"></param>
+        /// <param name="possibleNames"></param>
+        /// <param name="fallbackIndex"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public static int GetRequiredColumnIndex(string[] header, IEnumerable<string> possibleNames, int fallbackIndex = -1)
+        {
+            int index = -1;
+            foreach (var name in possibleNames)
+            {
+                index = Array.FindIndex(header, h => string.Equals(h.Trim(), name, StringComparison.OrdinalIgnoreCase));
+                if (index != -1) return index;
+            }
+
+            if (index == -1 && fallbackIndex == -1)
+            {
+                throw new Exception($"Required column not found. Expected one of these possible names: {string.Join(", ", possibleNames.Select(n => $"\"{n}\""))}");
+            }
+
+            if (fallbackIndex != -1 && (fallbackIndex < 0 || fallbackIndex >= header.Length))
+            {
+                throw new Exception($"The header have only {header.Length} columns, but \"{possibleNames.First()}\" column index must be at {fallbackIndex + 1}");
+            }
+
+            return fallbackIndex;
+        }
+
+        /// <summary>
+        /// Searches for the index of an optional column in the header of a CSV file 
+        /// by checking for multiple possible names (case-insensitive) and returns the index if found.
+        /// </summary>
+        /// <param name="header"></param>
+        /// <param name="possibleNames"></param>
+        /// <returns></returns>
+        public static int? GetOptionalColumnIndex(string[] header, IEnumerable<string> possibleNames)
+        {
+            foreach (var name in possibleNames)
+            {
+                int index = Array.FindIndex(header, h => string.Equals(h.Trim(), name, StringComparison.OrdinalIgnoreCase));
+                if (index != -1) return index;
+            }
+
+            return null; // Return null if no matching column is found
+        }
+
+        /// <summary>
+        /// Attempts to retrieve a value from a specified index in a CSV row (array of strings) 
+        /// and returns the value if the index is within bounds; otherwise, it returns null. 
+        /// This method provides a safe way to access values in a CSV row without risking an IndexOutOfRangeException.
+        /// </summary>
+        /// <param name="row"></param>
+        /// <param name="index"></param>
+        /// <returns></returns>
+        public static string? TryGetValue(string[] row, int index)
+        {
+            if (index < 0 || index >= row.Length) return null;
+            return row[index];
+        }
+
+        /// <summary>
+        /// Builds a dictionary for fast lookup from a list of CSV rows (arrays of strings) using a specified index as the key.
+        /// very useful if you want to quickly access rows based on a unique identifier that is located at a specific index in the CSV data.
+        /// </summary>
+        /// <param name="data"></param>
+        /// <param name="keyIndex"></param>
+        /// <returns></returns>
+        public static Dictionary<string, IReadOnlyList<string>> BuildFastLookuoDictionary(IEnumerable<string[]> data, int keyIndex)
+        {
+            Dictionary<string, IReadOnlyList<string>> dict = new(StringComparer.OrdinalIgnoreCase);
+            foreach (var row in data)
+            {
+                var key = TryGetValue(row, keyIndex);
+
+                if (key is null) continue;
+
+                if (!dict.ContainsKey(key))
+                {
+                    dict[key] = row;
+                }
+            }
+            return dict;
+        }
     }
 }
