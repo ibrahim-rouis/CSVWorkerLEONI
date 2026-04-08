@@ -81,18 +81,24 @@ namespace CSVWorker.Libs
         /// <param name="data">The list of string arrays representing the CSV rows.</param>
         /// <param name="delimiter">The delimiter to use for separating values.</param>
         /// <returns>A byte array containing the CSV content.</returns>
-        public static async Task<byte[]> ConvertListToCsv(IEnumerable<string[]> data, char delimiter = ',', CancellationToken cancellationToken = default)
+        public static async Task<byte[]> ConvertListToCsv(
+            IEnumerable<string[]> data,
+            char delimiter = ',',
+            CancellationToken cancellationToken = default)
         {
             using var memoryStream = new MemoryStream();
             using var streamWriter = new StreamWriter(memoryStream);
+
             foreach (var row in data)
             {
                 // Throw if cancellation is requested to allow cooperative cancellation of the operation.
                 cancellationToken.ThrowIfCancellationRequested();
 
-                var line = string.Join(delimiter, row);
+                var escaped = row.Select(cell => EscapeCsvCell(cell, delimiter));
+                var line = string.Join(delimiter, escaped);
                 await streamWriter.WriteLineAsync(line);
             }
+
             await streamWriter.FlushAsync(cancellationToken);
             return memoryStream.ToArray();
         }
@@ -222,6 +228,28 @@ namespace CSVWorker.Libs
                 }
             }
             return dict;
+        }
+
+        private static string EscapeCsvCell(string? value, char delimiter)
+        {
+            if (value is null)
+            {
+                return string.Empty;
+            }
+
+            var mustQuote =
+                value.Contains(delimiter) ||
+                value.Contains('"') ||
+                value.Contains('\r') ||
+                value.Contains('\n');
+
+            if (!mustQuote)
+            {
+                return value;
+            }
+
+            var escapedQuotes = value.Replace("\"", "\"\"");
+            return "\"" + escapedQuotes + "\"";
         }
     }
 }
