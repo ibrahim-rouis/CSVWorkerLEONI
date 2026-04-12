@@ -35,17 +35,12 @@ namespace CSVWorker.Services
             // RS (Semi-Components / Materials / Rohstoff)
             List<string> rsMaterialGroups = new List<string>
                 {
-                    "SCHL", "KFT", "LTG", "BAND", "KAB", "WUD",
-                    "FOL", "PUH", "HFA", "GLU", "GRA", "HAERT", "HARZ", "LWL",
-                    "SLTG", "LOE", "SCHRU", "DOK", "FFC", "ZINN", "GS", "REST"
+                    "GRA", "FOL", "GLU", "HAERT", "HARZ", "SLTG", "LOE", "SCHRU", "LTG", "ZINN", "SCHL"
                 };
             // RC (Discrete Components / Rüst Component)
-            List<string> rcMaterialGroups = new List<string>
+            List<string> ignoreMaterialGroups = new List<string>
                 {
-                    "CKONT", "GEH", "CLIP", "BLIND", "EDICH", "TUELL", "RELAY", "VERB",
-                    "VKONT", "KB", "EBOX", "KK", "BUSB", "ELK", "LKONT", "SCH",
-                    "SKAP", "VMECH", "BATKL", "SICH", "SWIT", "OKONT", "SKONT", "FPCB",
-                    "ETI", "APT"
+                    "TUV", "RUV"
                 };
 
             // Indicators for rows to skip
@@ -116,7 +111,6 @@ namespace CSVWorker.Services
 
                     // Metadata
                     string productNumber = string.Empty;
-
                     /** Materials **/
                     // RS materials
                     var cablesAndTapes = new List<string[]>();
@@ -152,17 +146,19 @@ namespace CSVWorker.Services
                                     if (skipIndicators.Contains(row[0]) || skipIndicators.Contains(row[1]))
                                         continue;
 
-                                    // Skip row that has "Overall total"
-                                    if (row[1] == "Overall total")
+                                    // Ignore some material groups that are not relevant for IMDS,
+                                    if (ignoreMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
+                                    {
+                                        // do nothing, ignore these material groups
                                         continue;
-
-                                    // Cables and tapes
-                                    if (rsMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
+                                    }
+                                    // Cables and tapes (RS)
+                                    else if (rsMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
                                     {
                                         cablesAndTapes.Add(row);
                                     }
-                                    // Connectors
-                                    else if (rcMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
+                                    // Discrete Components (RC)
+                                    else
                                     {
                                         rcMaterials.Add(row);
                                     }
@@ -387,6 +383,7 @@ namespace CSVWorker.Services
             {
                 var csvString = await readerRaw.ReadToEndAsync(cancellationToken);
 
+                // Normalize the CSV string to ensure no row is split into multiple lines due to embedded line breaks within quoted fields.
                 var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
 
                 using var normalizedReader = new StringReader(normalizedCsvString);
@@ -435,6 +432,8 @@ namespace CSVWorker.Services
             using (var reader = new StreamReader(stream))
             {
                 var csvString = await reader.ReadToEndAsync(cancellationToken);
+
+                // Normalize the CSV string to ensure no row is split into multiple lines due to embedded line breaks within quoted fields.
                 var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
                 using var normalizedReader = new StringReader(normalizedCsvString);
 
