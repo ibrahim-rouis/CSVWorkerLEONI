@@ -40,9 +40,9 @@ namespace CSVWorker.Services
             // RS (Semi-Components / Materials / Rohstoff)
             List<string> rsMaterialGroups = new List<string>
                 {
-                    "GRA", "FOL", "GLU", "HAERT", "HARZ", "SLTG", "LOE", "SCHRU", "LTG", "ZINN", "SCHL"
+                    "GRA", "FOL", "GLU", "HAERT", "HARZ", "SLTG", "LOE", "SCHRU", "LTG", "ZINN", "SCHL", "BAND"
                 };
-            // RC (Discrete Components / Rüst Component)
+            // Ignored material groups that are not relevant for IMDS 
             List<string> ignoreMaterialGroups = new List<string>
                 {
                     "TUV", "RUV"
