@@ -287,7 +287,7 @@ namespace CSVWorker.Libs
         /// <param name="data"></param>
         /// <param name="keyIndex"></param>
         /// <returns></returns>
-        public static Dictionary<string, IReadOnlyList<string>> BuildFastLookuoDictionary(IEnumerable<string[]> data, int keyIndex)
+        public static Dictionary<string, IReadOnlyList<string>> BuildFastLookupDictionary(IEnumerable<string[]> data, int keyIndex)
         {
             Dictionary<string, IReadOnlyList<string>> dict = new(StringComparer.OrdinalIgnoreCase);
             foreach (var row in data)

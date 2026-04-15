@@ -1,6 +1,6 @@
-﻿using CSVWorker.ViewModels.IMDSMacros;
+﻿using CSVWorker.Libs;
+using CSVWorker.ViewModels.IMDSMacros;
 using System.IO.Compression;
-using CSVWorker.Libs;
 
 namespace CSVWorker.Services
 {
@@ -25,6 +25,11 @@ namespace CSVWorker.Services
             // Database headers indexes
             int databaseLeoniPartIndex;
             int databaseNodeIdIndex;
+            int databaseFORSPNIndex;
+            int databaseSIGIPNIndex;
+            int databaseVisualPNIndex;
+            int databaseWGKIndex;
+
 
             // FORS Bom indexes
             const int forsBomPartNumberIndex = 1;
@@ -79,6 +84,11 @@ namespace CSVWorker.Services
 
                 databaseLeoniPartIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "LEONI Part Number", "PART/ITEM NO/" }, fallbackIndex: 2);
                 databaseNodeIdIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Node ID", "Noeud", "Nœud" }, fallbackIndex: 0);
+                databaseFORSPNIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "FORS PN", "FORS" }, fallbackIndex: 3);
+                databaseSIGIPNIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "SIGIP PN", "SIGIP" }, fallbackIndex: 4);
+                databaseVisualPNIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Visual PN", "Visual" }, fallbackIndex: 5);
+                databaseWGKIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "WGK", "Wide Group Key" }, fallbackIndex: 6);
+
 
                 // Read the file line by line asynchronously
                 while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
@@ -92,7 +102,11 @@ namespace CSVWorker.Services
             }
 
             // Build a fast lookup dictionary for the database by part number
-            var databaseByLeoniPart = CsvHelper.BuildFastLookuoDictionary(database, databaseLeoniPartIndex);
+            var databaseByLeoniPart = CsvHelper.BuildFastLookupDictionary(database, databaseLeoniPartIndex);
+            var databaseByFORSPN = CsvHelper.BuildFastLookupDictionary(database, databaseFORSPNIndex);
+            var databaseBySIGIPN = CsvHelper.BuildFastLookupDictionary(database, databaseSIGIPNIndex);
+            var databaseByVisualPN = CsvHelper.BuildFastLookupDictionary(database, databaseVisualPNIndex);
+            var databaseByWGK = CsvHelper.BuildFastLookupDictionary(database, databaseWGKIndex);
 
             // Create a ZIP archive in memory and add the generated CSV files as an entry.
             // The ZIP file will contain one CSV file with the IMDS data, 
@@ -196,27 +210,30 @@ namespace CSVWorker.Services
                         }
 
                         // Find Node ID for this part number from the Database CSV, if available
-                        string nodeId = "#N/A"; // Default value if not found
+                        string nodeId = string.Empty;
                         if (databaseByLeoniPart.TryGetValue(partNumber, out var databaseRow))
                         {
-                            nodeId = databaseRow.Count() > databaseNodeIdIndex ? databaseRow[databaseNodeIdIndex] : string.Empty;
-
-                            // if row is found but nodeId is empty, we consider it as missing node, and set nodeId to "#N/A"
-                            // Also add it to missing nodes list
-                            if (string.IsNullOrWhiteSpace(nodeId))
-                            {
-                                if (!hasMissingNodes || !currentFileHasMissingNodes)
-                                {
-                                    hasMissingNodes = true;
-                                    currentFileHasMissingNodes = true;
-                                }
-
-                                nodeId = "#N/A";
-                                missingNodes.Add([partNumber, nodeId]);
-                            }
+                            nodeId = CsvHelper.TryGetValue([.. databaseRow], databaseNodeIdIndex) ?? string.Empty;
                         }
-                        // if row not found in database, we also consider it as missing node, and add to missing nodes list
-                        else
+                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByFORSPN.TryGetValue(partNumber, out var databaseRowFORS))
+                        {
+                            nodeId = CsvHelper.TryGetValue([.. databaseRowFORS], databaseNodeIdIndex) ?? string.Empty;
+                        }
+                        if (string.IsNullOrWhiteSpace(nodeId) && databaseBySIGIPN.TryGetValue(partNumber, out var databaseRowSIGIP))
+                        {
+                            nodeId = CsvHelper.TryGetValue([.. databaseRowSIGIP], databaseNodeIdIndex) ?? string.Empty;
+                        }
+                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByVisualPN.TryGetValue(partNumber, out var databaseRowVisual))
+                        {
+                            nodeId = CsvHelper.TryGetValue([.. databaseRowVisual], databaseNodeIdIndex) ?? string.Empty;
+                        }
+                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByWGK.TryGetValue(partNumber, out var databaseRowWGK))
+                        {
+                            nodeId = CsvHelper.TryGetValue([.. databaseRowWGK], databaseNodeIdIndex) ?? string.Empty;
+                        }
+
+                        // if nodeId is empty or white space we change it to "#N/A" and add it to missing nodes 
+                        if (string.IsNullOrWhiteSpace(nodeId))
                         {
                             if (!hasMissingNodes || !currentFileHasMissingNodes)
                             {
@@ -224,6 +241,7 @@ namespace CSVWorker.Services
                                 currentFileHasMissingNodes = true;
                             }
 
+                            nodeId = "#N/A";
                             missingNodes.Add([partNumber, nodeId]);
                         }
 
@@ -247,27 +265,30 @@ namespace CSVWorker.Services
                         quantity = quantityValue > int.MinValue ? quantityValue.ToString() : "ERR";
 
                         // Find Node ID for this part number from the Database CSV, if available
-                        string nodeId = "#N/A"; // Default value if not found
+                        string nodeId = string.Empty;
                         if (databaseByLeoniPart.TryGetValue(partNumber, out var databaseRow))
                         {
-                            nodeId = databaseRow.Count() > databaseNodeIdIndex ? databaseRow[databaseNodeIdIndex] : string.Empty; // Assuming Node ID is in the specified column
-
-                            // if row is found but nodeId is empty, we consider it as missing node, and set nodeId to "#N/A"
-                            // Also add it to missing nodes list
-                            if (string.IsNullOrWhiteSpace(nodeId))
-                            {
-                                if (!hasMissingNodes || !currentFileHasMissingNodes)
-                                {
-                                    hasMissingNodes = true;
-                                    currentFileHasMissingNodes = true;
-                                }
-
-
-                                nodeId = "#N/A";
-                                missingNodes.Add([partNumber, nodeId]);
-                            }
+                            nodeId = CsvHelper.TryGetValue([.. databaseRow], databaseNodeIdIndex) ?? string.Empty;
                         }
-                        else
+                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByFORSPN.TryGetValue(partNumber, out var databaseRowFORS))
+                        {
+                            nodeId = CsvHelper.TryGetValue([.. databaseRowFORS], databaseNodeIdIndex) ?? string.Empty;
+                        }
+                        if (string.IsNullOrWhiteSpace(nodeId) && databaseBySIGIPN.TryGetValue(partNumber, out var databaseRowSIGIP))
+                        {
+                            nodeId = CsvHelper.TryGetValue([.. databaseRowSIGIP], databaseNodeIdIndex) ?? string.Empty;
+                        }
+                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByVisualPN.TryGetValue(partNumber, out var databaseRowVisual))
+                        {
+                            nodeId = CsvHelper.TryGetValue([.. databaseRowVisual], databaseNodeIdIndex) ?? string.Empty;
+                        }
+                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByWGK.TryGetValue(partNumber, out var databaseRowWGK))
+                        {
+                            nodeId = CsvHelper.TryGetValue([.. databaseRowWGK], databaseNodeIdIndex) ?? string.Empty;
+                        }
+
+                        // if nodeId is empty or white space we change it to "#N/A" and add it to missing nodes 
+                        if (string.IsNullOrWhiteSpace(nodeId))
                         {
                             if (!hasMissingNodes || !currentFileHasMissingNodes)
                             {
@@ -275,8 +296,7 @@ namespace CSVWorker.Services
                                 currentFileHasMissingNodes = true;
                             }
 
-
-                            // Add to missing nodes list to be exported to "missing_nodes.csv"
+                            nodeId = "#N/A";
                             missingNodes.Add([partNumber, nodeId]);
                         }
 
@@ -505,7 +525,7 @@ namespace CSVWorker.Services
             _logger.LogInformation("UpdateDatabaseIMDS: Number of lines parsed from A2 file: {A2LinesCount}", a2Doc.Count);
 
             // Build fast lookup for A2 rows by LP
-            var a2ByLP = CsvHelper.BuildFastLookuoDictionary(a2Doc, a2LPIndex);
+            var a2ByLP = CsvHelper.BuildFastLookupDictionary(a2Doc, a2LPIndex);
 
             // Database output: first row only for titles, then rebuilt rows from A2 + LPCP enrichment
             var outputRows = new List<string[]>
@@ -696,7 +716,7 @@ namespace CSVWorker.Services
             }
 
             // Build a fast lookup dictionary for the database by part number
-            var databaseByLeoniPart = CsvHelper.BuildFastLookuoDictionary(database, databaseLeoniPartIndex);
+            var databaseByLeoniPart = CsvHelper.BuildFastLookupDictionary(database, databaseLeoniPartIndex);
 
             // return same IMDS CSV file bytes for now until further notice
             using (var stream = model.IMDSFileCSV.OpenReadStream())
