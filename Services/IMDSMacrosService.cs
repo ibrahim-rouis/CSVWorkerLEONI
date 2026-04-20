@@ -40,7 +40,9 @@ namespace CSVWorker.Services
             // RS (Semi-Components / Materials / Rohstoff)
             List<string> rsMaterialGroups = new List<string>
                 {
-                    "GRA", "FOL", "GLU", "HAERT", "HARZ", "SLTG", "LOE", "SCHRU", "LTG", "ZINN", "SCHL", "BAND"
+                    "SCHL", "KFT", "LTG", "BAND", "KAB", "WUD",
+                    "FOL", "PUH", "HFA", "GLU", "GRA", "HAERT", "HARZ", "LWL",
+                    "SLTG", "LOE", "SCHRU", "DOK", "FFC", "ZINN", "GS", "REST"
                 };
             // Ignored material groups that are not relevant for IMDS 
             List<string> ignoreMaterialGroups = new List<string>
@@ -59,7 +61,6 @@ namespace CSVWorker.Services
             {
                 (["PART/ITEM NO/", "Node ID"])
             };
-            bool hasMissingNodes = false;
 
             // Load Database CSV
             var database = new List<string[]>();
@@ -210,43 +211,20 @@ namespace CSVWorker.Services
                         }
 
                         // Find Node ID for this part number from the Database CSV, if available
-                        string nodeId = string.Empty;
-                        if (databaseByLeoniPart.TryGetValue(partNumber, out var databaseRow))
-                        {
-                            nodeId = CsvHelper.TryGetValue([.. databaseRow], databaseNodeIdIndex) ?? string.Empty;
-                        }
-                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByFORSPN.TryGetValue(partNumber, out var databaseRowFORS))
-                        {
-                            nodeId = CsvHelper.TryGetValue([.. databaseRowFORS], databaseNodeIdIndex) ?? string.Empty;
-                        }
-                        if (string.IsNullOrWhiteSpace(nodeId) && databaseBySIGIPN.TryGetValue(partNumber, out var databaseRowSIGIP))
-                        {
-                            nodeId = CsvHelper.TryGetValue([.. databaseRowSIGIP], databaseNodeIdIndex) ?? string.Empty;
-                        }
-                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByVisualPN.TryGetValue(partNumber, out var databaseRowVisual))
-                        {
-                            nodeId = CsvHelper.TryGetValue([.. databaseRowVisual], databaseNodeIdIndex) ?? string.Empty;
-                        }
-                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByWGK.TryGetValue(partNumber, out var databaseRowWGK))
-                        {
-                            nodeId = CsvHelper.TryGetValue([.. databaseRowWGK], databaseNodeIdIndex) ?? string.Empty;
-                        }
+                        var nodeId = IMDSHelper.GetNodeID(partNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
 
-                        // if nodeId is empty or white space we change it to "#N/A" and add it to missing nodes 
-                        if (string.IsNullOrWhiteSpace(nodeId))
+                        // if nodeId is null (not found)
+                        if (nodeId == null)
                         {
-                            if (!hasMissingNodes || !currentFileHasMissingNodes)
+                            if (!currentFileHasMissingNodes)
                             {
-                                hasMissingNodes = true;
                                 currentFileHasMissingNodes = true;
                             }
-
-                            nodeId = "#N/A";
-                            missingNodes.Add([partNumber, nodeId]);
+                            missingNodes.Add([partNumber, "#N/A"]);
                         }
 
 
-                        outputRow.Add(["CABLES & TAPES", partNumber, partNumber, string.Empty, weight, "g", string.Empty, "RS", nodeId, string.Empty, string.Empty]);
+                        outputRow.Add(["CABLES & TAPES", partNumber, partNumber, string.Empty, weight, "g", string.Empty, "RS", nodeId ?? "#N/A", string.Empty, string.Empty]);
                     }
 
                     // Add connectors to IMDS output
@@ -265,42 +243,19 @@ namespace CSVWorker.Services
                         quantity = quantityValue > int.MinValue ? quantityValue.ToString() : "ERR";
 
                         // Find Node ID for this part number from the Database CSV, if available
-                        string nodeId = string.Empty;
-                        if (databaseByLeoniPart.TryGetValue(partNumber, out var databaseRow))
-                        {
-                            nodeId = CsvHelper.TryGetValue([.. databaseRow], databaseNodeIdIndex) ?? string.Empty;
-                        }
-                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByFORSPN.TryGetValue(partNumber, out var databaseRowFORS))
-                        {
-                            nodeId = CsvHelper.TryGetValue([.. databaseRowFORS], databaseNodeIdIndex) ?? string.Empty;
-                        }
-                        if (string.IsNullOrWhiteSpace(nodeId) && databaseBySIGIPN.TryGetValue(partNumber, out var databaseRowSIGIP))
-                        {
-                            nodeId = CsvHelper.TryGetValue([.. databaseRowSIGIP], databaseNodeIdIndex) ?? string.Empty;
-                        }
-                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByVisualPN.TryGetValue(partNumber, out var databaseRowVisual))
-                        {
-                            nodeId = CsvHelper.TryGetValue([.. databaseRowVisual], databaseNodeIdIndex) ?? string.Empty;
-                        }
-                        if (string.IsNullOrWhiteSpace(nodeId) && databaseByWGK.TryGetValue(partNumber, out var databaseRowWGK))
-                        {
-                            nodeId = CsvHelper.TryGetValue([.. databaseRowWGK], databaseNodeIdIndex) ?? string.Empty;
-                        }
+                        var nodeId = IMDSHelper.GetNodeID(partNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
 
-                        // if nodeId is empty or white space we change it to "#N/A" and add it to missing nodes 
-                        if (string.IsNullOrWhiteSpace(nodeId))
+                        // if nodeId is null (not found)
+                        if (nodeId == null)
                         {
-                            if (!hasMissingNodes || !currentFileHasMissingNodes)
+                            if (!currentFileHasMissingNodes)
                             {
-                                hasMissingNodes = true;
                                 currentFileHasMissingNodes = true;
                             }
-
-                            nodeId = "#N/A";
-                            missingNodes.Add([partNumber, nodeId]);
+                            missingNodes.Add([partNumber, "#N/A"]);
                         }
 
-                        outputRow.Add([productNumber, partNumber, partNumber, quantity, string.Empty, string.Empty, string.Empty, "RC", nodeId, string.Empty, string.Empty]);
+                        outputRow.Add([productNumber, partNumber, partNumber, quantity, string.Empty, string.Empty, string.Empty, "RC", nodeId ?? "#N/A", string.Empty, string.Empty]);
                     }
 
                     // 
@@ -349,7 +304,7 @@ namespace CSVWorker.Services
                 // to the ZIP with the details of the missing nodes.
                 // The CSV file will be "missing_nodes.csv" 
                 // and will contain two columns: "PART/ITEM NO/" and "Node ID".
-                if (hasMissingNodes)
+                if (missingNodes.Count > 0)
                 {
                     // first remove rows with duplicate part numbers in missingNodes, keeping only the first occurrence.
                     missingNodes = missingNodes.DistinctBy(row => row[0]).ToList();
@@ -595,7 +550,7 @@ namespace CSVWorker.Services
             return outputCsvBytes;
         }
 
-        public async Task<byte[]> UpdateDatabasePorsche(UpdateDatabasePorscheVM model, CancellationToken cancellationToken)
+        public /*async*/ Task<byte[]> UpdateDatabasePorsche(UpdateDatabasePorscheVM model, CancellationToken cancellationToken)
         {
             _logger.LogInformation("UpdateDatabasePorsche started. LPCP file={LPCPFileName}", model.LPCPFile?.FileName);
 
@@ -604,141 +559,19 @@ namespace CSVWorker.Services
                 throw new NullReferenceException("Input must not be null. Usually it must be validated in controller before sending to service for processing.");
             }
 
-            var lpcpDoc = new List<string[]>();
-
-            int leoniPartIndex;
-            int articleNameIndex;
-            int forsMaterialGroupIndex;
-            int crossSecIndex;
-
-            // Load LPCP
-            using (var stream = model.LPCPFile.OpenReadStream())
-            using (var reader = new StreamReader(stream))
-            {
-                string? line;
-
-                // Get header and determine column indexes for LEONI part number, article name, FORS material group and cross section.
-                var headerLine = await reader.ReadLineAsync(cancellationToken);
-                if (string.IsNullOrEmpty(headerLine))
-                {
-                    throw new InvalidDataException("LPCP file header is invalid or empty.");
-                }
-
-                var delimiter = CsvHelper.DetectDelimiter(headerLine);
-
-                var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
-                if (headerRow == null || headerRow.Length == 0)
-                {
-                    throw new InvalidDataException("LPCP file header is invalid or empty.");
-                }
-
-                leoniPartIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "LEONI Part Number", "PART/ITEM NO/", "Item- /Mat.-No." });
-                articleNameIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Article Name" });
-                forsMaterialGroupIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "FORS Material Group" });
-                crossSecIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Cross-Sec (INDIV1)" });
-
-                // Read data line by line asynchronously
-                while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
-                {
-                    var row = CsvHelper.ParseLine(line, delimiter);
-                    if (row != null)
-                    {
-                        lpcpDoc.Add(row);
-                    }
-                }
-            }
-
-            // Database output
-            var outputRows = new List<string[]>
-            {
-                (["Item- /Mat.-No.", "Article Name", "FORS Material Group", "Cross-Sec (INDIV1)", "date"])
-            };
-
-            foreach (var lpcpRow in lpcpDoc)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (lpcpRow == null || lpcpRow.Length == 0)
-                {
-                    continue; // Skip empty rows
-                }
-
-                var leoniPart = CsvHelper.TryGetValue(lpcpRow, leoniPartIndex) ?? string.Empty;
-                var articleName = CsvHelper.TryGetValue(lpcpRow, articleNameIndex) ?? string.Empty;
-                var forsMaterialGroup = CsvHelper.TryGetValue(lpcpRow, forsMaterialGroupIndex) ?? string.Empty;
-                var crossSec = CsvHelper.TryGetValue(lpcpRow, crossSecIndex) ?? string.Empty;
-
-                if (string.IsNullOrWhiteSpace(leoniPart))
-                {
-                    continue; // Skip rows with missing critical data
-                }
-
-                outputRows.Add([leoniPart, articleName, forsMaterialGroup, crossSec, string.Empty]);
-            }
-
-            var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRows, ';', cancellationToken);
-
-            _logger.LogInformation("UpdateDatabasePorsche finished. Output rows={RowsCount}", outputRows.Count - 1);
-
-            return outputCsvBytes;
+            throw new NotImplementedException("The logic to update Porsche database is not implemented yet");
         }
 
-        public async Task<(string fileName, byte[] outputBytes)> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
+        public /*async*/ Task<(string fileName, byte[] outputBytes)> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
         {
             if (model.IMDSFileCSV == null || model.DatabasePorscheCSV == null)
             {
                 throw new ArgumentException("Input missing - please provide the IMDS CSV file and the Database Porsche CSV file.");
             }
 
-            // Database headers indexes
-            const int databaseLeoniPartIndex = 0;
-            const int databaseArticleNameIndex = 1;
-
-            // Load Database Porsche CSV
-            var database = new List<string[]>();
-            using (var stream = model.DatabasePorscheCSV.OpenReadStream())
-            using (var reader = new StreamReader(stream))
-            {
-                string? line;
-
-                // Skip header
-                await reader.ReadLineAsync(cancellationToken);
-
-                // Read the file line by line asynchronously
-                while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
-                {
-                    var row = CsvHelper.ParseLine(line, ',');
-                    if (row != null)
-                    {
-                        database.Add(row);
-                    }
-                }
-            }
-
-            // Build a fast lookup dictionary for the database by part number
-            var databaseByLeoniPart = CsvHelper.BuildFastLookupDictionary(database, databaseLeoniPartIndex);
-
-            // return same IMDS CSV file bytes for now until further notice
-            using (var stream = model.IMDSFileCSV.OpenReadStream())
-            using (var reader = new StreamReader(stream))
-            {
-                string? line;
-                var imdsData = new List<string[]>();
-
-                // Read the file line by line asynchronously
-                while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
-                {
-                    var row = CsvHelper.ParseLine(line, ',');
-                    if (row != null)
-                    {
-                        imdsData.Add(row);
-                    }
-                }
-
-                // Here we would implement the logic to transform the IMDS BOM data to Porsche IMDS format,
-                // using the database for lookups as needed. For now, we will just throw a NotImplementedException
-                throw new NotImplementedException("The logic to transform IMDS BOM to Porsche IMDS is not implemented yet.");
-            }
+            // Here we would implement the logic to transform the IMDS BOM data to Porsche IMDS format,
+            // using the database for lookups as needed. For now, we will just throw a NotImplementedException
+            throw new NotImplementedException("The logic to transform IMDS BOM to Porsche IMDS is not implemented yet.");
         }
     }
 }
