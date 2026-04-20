@@ -40,7 +40,7 @@ namespace CSVWorker.Services
             // RS (Semi-Components / Materials / Rohstoff)
             List<string> rsMaterialGroups = new List<string>
                 {
-                    "SCHL", "KFT", "LTG", "BAND", "KAB", "WUD",
+                    "SCHL", "LTG", "BAND", "WUD",
                     "FOL", "PUH", "HFA", "GLU", "GRA", "HAERT", "HARZ", "LWL",
                     "SLTG", "LOE", "SCHRU", "DOK", "FFC", "ZINN", "GS", "REST"
                 };
