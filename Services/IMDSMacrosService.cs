@@ -124,16 +124,14 @@ namespace CSVWorker.Services
                         throw new ArgumentException($"File '{file.FileName}' is not a valid CSV file.");
                     }
 
-                    // Metadata
-                    string productNumber = string.Empty;
+                    // Product numbers
+                    var productNumbers = new HashSet<string>();
+
                     /** Materials **/
                     // RS materials
-                    var cablesAndTapes = new List<string[]>();
+                    var cablesAndTapes = new Dictionary<string, List<string[]>>();
                     // RC materials
-                    var rcMaterials = new List<string[]>();
-
-                    // current file has missing nodes
-                    bool currentFileHasMissingNodes = false;
+                    var rcMaterials = new Dictionary<string, List<string[]>>();
 
                     // Parse FORS BOM CSV
                     using (var stream = file.OpenReadStream())
@@ -144,39 +142,51 @@ namespace CSVWorker.Services
                         // Skip header
                         await reader.ReadLineAsync(cancellationToken);
 
+
+                        // skip fist 12 lines of the file as they usually contain metadata and other non-tabular information,
+                        // and the actual tabular data usually starts from line 13 with the header "Partnumber;Description;...".
+                        for (int i = 0; i < 11; i++)
+                        {
+                            await reader.ReadLineAsync(cancellationToken);
+                        }
+
                         // 3. Read the file line by line asynchronously
                         while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                         {
-                            // These CSV files use ';' as a delimiter
+                            // These FORS CSV files use ';' as a delimiter
                             var row = CsvHelper.ParseLine(line, ';');
-                            if (row != null)
+                            if (row != null && row.Length >= 12)
                             {
-                                if (row.Length >= 2 && row[0] == "Partnumber (from)")
-                                {
-                                    productNumber = row[1];
-                                }
-                                else if (row.Length >= 12)
-                                {
-                                    // Skip header or rows that has "Total", "Summe", etc
-                                    if (skipIndicators.Contains(row[0]) || skipIndicators.Contains(row[1]))
-                                        continue;
+                                var productNumber = row[0];
+                                productNumbers.Add(productNumber);
 
-                                    // Ignore some material groups that are not relevant for IMDS,
-                                    if (ignoreMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
+                                // Skip header or rows that has "Total", "Summe", etc
+                                if (skipIndicators.Contains(row[0]) || skipIndicators.Contains(row[1]))
+                                    continue;
+
+                                // Ignore some material groups that are not relevant for IMDS,
+                                if (ignoreMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
+                                {
+                                    // do nothing, ignore these material groups
+                                    continue;
+                                }
+                                // Cables and tapes (RS)
+                                else if (rsMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
+                                {
+                                    if (!cablesAndTapes.ContainsKey(productNumber))
                                     {
-                                        // do nothing, ignore these material groups
-                                        continue;
+                                        cablesAndTapes[productNumber] = new List<string[]>();
                                     }
-                                    // Cables and tapes (RS)
-                                    else if (rsMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
+                                    cablesAndTapes[productNumber].Add(row);
+                                }
+                                // Discrete Components (RC)
+                                else
+                                {
+                                    if (!rcMaterials.ContainsKey(productNumber))
                                     {
-                                        cablesAndTapes.Add(row);
+                                        rcMaterials[productNumber] = new List<string[]>();
                                     }
-                                    // Discrete Components (RC)
-                                    else
-                                    {
-                                        rcMaterials.Add(row);
-                                    }
+                                    rcMaterials[productNumber].Add(row);
                                 }
                             }
                         }
@@ -184,121 +194,129 @@ namespace CSVWorker.Services
 
                     /** IMDS Output Construction **/
 
-                    // Build IMDS
-                    var outputRow = new List<string[]>
-            {
-                (["MDS_BEGIN", "Datasheet", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]),
-                ([string.Empty, productNumber, productNumber, string.Empty, string.Empty, "g", "5", string.Empty, string.Empty, string.Empty, string.Empty]),
-                ([productNumber, "CABLES & TAPES", "CABLES & TAPES", "1", string.Empty, "g", "5", "C", string.Empty, string.Empty, string.Empty])
-            };
-
-                    // Add cables and tapes to IMDS output
-                    foreach (var row in cablesAndTapes)
+                    foreach (var productNumber in productNumbers)
                     {
-                        var partNumber = row[forsBomPartNumberIndex];
-                        var weight = row[forsBomWeightIndex].Replace(',', '.'); // IMDS expects '.' as decimal separator
+                        _logger.LogInformation("Processing product number {ProductNumber} from file {FileName} to IMDS output", productNumber, file.FileName);
 
-                        // convert weight to double
-                        if (double.TryParse(weight, out var weightValue))
-                        {
-                            weightValue *= 1000; // Convert kg to g
-                            weight = weightValue.ToString("F3");
-                        }
-                        else
-                        {
-                            // If parsing fails, column will have ERR to indicate error parsing.
-                            weight = "ERR";
-                        }
+                        // current file has missing nodes
+                        bool currentFileHasMissingNodes = false;
+                        // Build IMDS
+                        var outputRow = new List<string[]>{
+                                (["MDS_BEGIN", "Datasheet", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]),
+                                ([string.Empty, productNumber, productNumber, string.Empty, string.Empty, "g", "5", string.Empty, string.Empty, string.Empty, string.Empty]),
+                                ([productNumber, "CABLES & TAPES", "CABLES & TAPES", "1", string.Empty, "g", "5", "C", string.Empty, string.Empty, string.Empty])
+                            };
 
-                        // Find Node ID for this part number from the Database CSV, if available
-                        var nodeId = IMDSHelper.GetNodeID(partNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
-
-                        // if nodeId is null (not found)
-                        if (nodeId == null)
+                        // Add cables and tapes to IMDS output
+                        if (cablesAndTapes.ContainsKey(productNumber))
                         {
-                            if (!currentFileHasMissingNodes)
+                            foreach (var row in cablesAndTapes[productNumber])
                             {
-                                currentFileHasMissingNodes = true;
+                                var partNumber = row[forsBomPartNumberIndex];
+                                var weight = row[forsBomWeightIndex].Replace(',', '.'); // IMDS expects '.' as decimal separator
+
+                                // convert weight to double
+                                if (double.TryParse(weight, out var weightValue))
+                                {
+                                    weightValue *= 1000; // Convert kg to g
+                                    weight = weightValue.ToString("F3");
+                                }
+                                else
+                                {
+                                    // If parsing fails, column will have ERR to indicate error parsing.
+                                    weight = "ERR";
+                                }
+
+                                // Find Node ID for this part number from the Database CSV, if available
+                                var nodeId = IMDSHelper.GetNodeID(partNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
+
+                                // if nodeId is null (not found)
+                                if (nodeId == null)
+                                {
+                                    if (!currentFileHasMissingNodes)
+                                    {
+                                        currentFileHasMissingNodes = true;
+                                    }
+                                    missingNodes.Add([partNumber, "#N/A"]);
+                                }
+
+
+                                outputRow.Add(["CABLES & TAPES", partNumber, partNumber, string.Empty, weight, "g", string.Empty, "RS", nodeId ?? "#N/A", string.Empty, string.Empty]);
                             }
-                            missingNodes.Add([partNumber, "#N/A"]);
                         }
 
-
-                        outputRow.Add(["CABLES & TAPES", partNumber, partNumber, string.Empty, weight, "g", string.Empty, "RS", nodeId ?? "#N/A", string.Empty, string.Empty]);
-                    }
-
-                    // Add connectors to IMDS output
-                    foreach (var row in rcMaterials)
-                    {
-                        var partNumber = row[forsBomPartNumberIndex];
-                        var quantity = row[forsBomQuantityIndex].Replace(',', '.'); // IMDS expects '.' as decimal separator
-                        var quantityValue = int.MinValue;
-
-                        // convert quantity to int
-                        if (double.TryParse(quantity, out var quantityValueDouble))
+                        // Add connectors to IMDS output
+                        if (rcMaterials.ContainsKey(productNumber))
                         {
-                            quantityValue = (int)quantityValueDouble;
-                        }
-                        // If parsing fails, column will have ERR to indicate error parsing.
-                        quantity = quantityValue > int.MinValue ? quantityValue.ToString() : "ERR";
-
-                        // Find Node ID for this part number from the Database CSV, if available
-                        var nodeId = IMDSHelper.GetNodeID(partNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
-
-                        // if nodeId is null (not found)
-                        if (nodeId == null)
-                        {
-                            if (!currentFileHasMissingNodes)
+                            foreach (var row in rcMaterials[productNumber])
                             {
-                                currentFileHasMissingNodes = true;
+                                var partNumber = row[forsBomPartNumberIndex];
+                                var quantity = row[forsBomQuantityIndex].Replace(',', '.'); // IMDS expects '.' as decimal separator
+                                var quantityValue = int.MinValue;
+
+                                // convert quantity to int
+                                if (double.TryParse(quantity, out var quantityValueDouble))
+                                {
+                                    quantityValue = (int)quantityValueDouble;
+                                }
+                                // If parsing fails, column will have ERR to indicate error parsing.
+                                quantity = quantityValue > int.MinValue ? quantityValue.ToString() : "ERR";
+
+                                // Find Node ID for this part number from the Database CSV, if available
+                                var nodeId = IMDSHelper.GetNodeID(partNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
+
+                                // if nodeId is null (not found)
+                                if (nodeId == null)
+                                {
+                                    if (!currentFileHasMissingNodes)
+                                    {
+                                        currentFileHasMissingNodes = true;
+                                    }
+                                    missingNodes.Add([partNumber, "#N/A"]);
+                                }
+
+                                outputRow.Add([productNumber, partNumber, partNumber, quantity, string.Empty, string.Empty, string.Empty, "RC", nodeId ?? "#N/A", string.Empty, string.Empty]);
                             }
-                            missingNodes.Add([partNumber, "#N/A"]);
                         }
 
-                        outputRow.Add([productNumber, partNumber, partNumber, quantity, string.Empty, string.Empty, string.Empty, "RC", nodeId ?? "#N/A", string.Empty, string.Empty]);
+                        // MDS_END
+                        outputRow.Add(["MDS_END", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
+
+                        // I don't know why the original macro leaves 3 empty rows before "END", 
+                        // but to keep the output consistent with the original macro, 
+                        // I will also add 3 empty rows before "END".
+                        outputRow.Add([string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
+                        outputRow.Add([string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
+                        outputRow.Add([string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
+
+                        // END row
+                        outputRow.Add(["END", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
+
+                        /** End of IMDS Output Construction **/
+
+                        var imdsFileName = $"{productNumber}.csv";
+
+                        // If there are missing nodes we rename the file name 
+                        // to indicate that the data is incomplete, 
+                        // so the user knows to check the "missing_nodes.csv" for details.
+                        if (currentFileHasMissingNodes)
+                        {
+                            imdsFileName = $"000000000_Missing_Data_{productNumber}.csv";
+                        }
+
+                        // Add the IMDS output CSV to the ZIP archive
+                        var imdsFileEntry = archive.CreateEntry(imdsFileName);
+                        await using (var entryStream = imdsFileEntry.Open())
+                        {
+                            // IMDS csv is commas separated.
+                            // unlike FORS BOM input csv files which are semicolon separated.
+                            var imdsFileEntryOutputBytes = await CsvHelper.ConvertListToCsv(outputRow, ',', cancellationToken);
+                            await entryStream.WriteAsync(imdsFileEntryOutputBytes, cancellationToken);
+                            await entryStream.FlushAsync(cancellationToken);
+                        }
                     }
-
-                    // 
-                    outputRow.Add(["MDS_END", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
-
-                    // I don't know why the original macro leaves 3 empty rows before "END", 
-                    // but to keep the output consistent with the original macro, 
-                    // I will also add 3 empty rows before "END".
-                    outputRow.Add([string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
-                    outputRow.Add([string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
-                    outputRow.Add([string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
-
-                    // END row
-                    outputRow.Add(["END", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
-
-                    /** End of IMDS Output Construction **/
-
-                    var imdsFileName = $"{productNumber}.csv";
-
-                    // If there are missing nodes we rename the file name 
-                    // to indicate that the data is incomplete, 
-                    // so the user knows to check the "missing_nodes.csv" for details.
-                    if (currentFileHasMissingNodes)
-                    {
-                        imdsFileName = $"000000000_Missing_Data_{productNumber}.csv";
-                    }
-
-                    // Add the IMDS output CSV to the ZIP archive
-                    var imdsFileEntry = archive.CreateEntry(imdsFileName);
-                    await using (var entryStream = imdsFileEntry.Open())
-                    {
-                        // IMDS csv is commas separated.
-                        // unlike FORS BOM input csv files which are semicolon separated.
-                        var imdsFileEntryOutputBytes = await CsvHelper.ConvertListToCsv(outputRow, ',', cancellationToken);
-                        await entryStream.WriteAsync(imdsFileEntryOutputBytes, cancellationToken);
-                        await entryStream.FlushAsync(cancellationToken);
-                    }
-
-                    // clean up for next file processing
-                    cablesAndTapes.Clear();
-                    rcMaterials.Clear();
+                    /** End processing FORS BOM files **/
                 }
-                /** End processing FORS BOM files **/
 
                 // If there are missing nodes, we add another entry 
                 // to the ZIP with the details of the missing nodes.
