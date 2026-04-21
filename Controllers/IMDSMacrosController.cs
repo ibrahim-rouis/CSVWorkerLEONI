@@ -49,7 +49,19 @@ namespace CSVWorker.Controllers
             try
             {
                 var outputBytes = await _service.UpdateDatabaseIMDS(model, cancellationToken);
-                return File(outputBytes, "text/csv", "database.csv");
+                // Database name should have date appended to it
+                // date should be in for yyyy-mm-dd_HHmmss
+                if (outputBytes != null)
+                {
+                    var dateString = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+                    var fileName = $"database_{dateString}.csv";
+                    return File(outputBytes, "text/csv", fileName);
+                }
+                else
+                {
+                    model.ErrorMessage = "An error occurred while processing the files. Please try again.";
+                    return View(model);
+                }
             }
             catch (Exception e)
             {
