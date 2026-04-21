@@ -51,17 +51,17 @@ namespace CSVWorker.Controllers
                 var outputBytes = await _service.UpdateDatabaseIMDS(model, cancellationToken);
                 // Database name should have date appended to it
                 // date should be in for yyyy-mm-dd_HHmmss
-                if (outputBytes != null)
-                {
-                    var dateString = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
-                    var fileName = $"database_{dateString}.csv";
-                    return File(outputBytes, "text/csv", fileName);
-                }
-                else
+                if (outputBytes == null)
                 {
                     model.ErrorMessage = "An error occurred while processing the files. Please try again.";
                     return View(model);
+
                 }
+
+                var dateString = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+                var fileName = $"database_{dateString}.csv";
+                Response.Cookies.Append("fileDownloadToken", "success", new CookieOptions { Path = "/", HttpOnly = false, Secure = false });
+                return File(outputBytes, "text/csv", fileName);
             }
             catch (Exception e)
             {
@@ -96,7 +96,17 @@ namespace CSVWorker.Controllers
             try
             {
                 var outputBytes = await _service.UpdateDatabasePorsche(model, cancellationToken);
-                return File(outputBytes, "text/csv", "database_porsche.csv");
+                if (outputBytes == null)
+                {
+                    model.ErrorMessage = "An error occurred while processing the file. Please try again.";
+                    return View(model);
+
+                }
+
+                var dateString = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+                var fileName = $"database_porsche_{dateString}.csv";
+                Response.Cookies.Append("fileDownloadToken", "success", new CookieOptions { Path = "/", HttpOnly = false, Secure = false });
+                return File(outputBytes, "text/csv", fileName);
             }
             catch (Exception e)
             {
@@ -133,7 +143,16 @@ namespace CSVWorker.Controllers
             try
             {
                 var outputBytes = await _service.MultiForsBomToIMDS(model, cancellationToken);
-                return File(outputBytes, "application/zip", "IMDS_CSV_Files.zip");
+                if (outputBytes == null)
+                {
+                    model.ErrorMessage = "An error occurred while processing the files. Please try again.";
+                    return View(model);
+                }
+
+                var dateString = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+                var fileName = $"IMDS_CSV_Files_{dateString}.zip";
+                Response.Cookies.Append("fileDownloadToken", "success", new CookieOptions { Path = "/", HttpOnly = false, Secure = false });
+                return File(outputBytes, "application/zip", fileName);
             }
             catch (Exception e)
             {
@@ -173,6 +192,13 @@ namespace CSVWorker.Controllers
             try
             {
                 var (filename, outputBytes) = await _service.IMDSBomToPorscheIMDS(model, cancellationToken);
+                if (outputBytes == null || filename == null)
+                {
+                    model.ErrorMessage = "An error occurred while processing the files. Please try again.";
+                    return View(model);
+                }
+
+                Response.Cookies.Append("fileDownloadToken", "success", new CookieOptions { Path = "/", HttpOnly = false, Secure = false });
                 return File(outputBytes, "text/csv", filename);
             }
             catch (Exception e)

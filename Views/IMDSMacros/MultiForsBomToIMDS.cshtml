@@ -13,7 +13,7 @@
                 <small class="text-body float-end">IMDS Macros</small>
             </div>
             <div class="card-body">
-                <form asp-action="MultiForsBomToIMDS" method="post" enctype="multipart/form-data">
+                <form asp-action="MultiForsBomToIMDS" method="post" enctype="multipart/form-data" id="download-form">
                     <div class="mb-6">
                         <label class="form-label fs-5" asp-for="CsvFiles">FORS BOM Folder (Must contain FORS CSV
                             files)</label>
@@ -32,6 +32,10 @@
                         {
                             <div class="text-danger mt-3">@Model.ErrorMessage</div>
                         }
+                        <!-- Success Message (hidden by default) -->
+                        <div id="success-alert" class="alert alert-success mt-2 d-none">
+                            File successfully downloaded!
+                        </div>
                     </form>
                 </div>
             </div>
@@ -42,4 +46,57 @@
         @{
             await Html.RenderPartialAsync("_ValidationScriptsPartial");
         }
+    <script>
+        document.getElementById('download-form').addEventListener('submit', function () {
+            // disable submit button
+            var submitButton = this.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+
+            // set submit button name to running...
+            var originalButtonText = submitButton.textContent;
+            submitButton.textContent = 'Running...';
+
+            // Hide the server error message if it exists
+            var errorAlert = document.getElementById('error-alert');
+            if (errorAlert) {
+                errorAlert.style.display = 'none';
+            }
+
+            // Hide success message
+            var successAlert = document.getElementById('success-alert');
+            if (successAlert) {
+                successAlert.classList.add('d-none');
+            }
+            // Start polling for the cookie
+            var downloadTimer = window.setInterval(function() {
+                var token = getCookie("fileDownloadToken");
+                if (token === "success") {
+                    window.clearInterval(downloadTimer);
+
+                    // Show the success message
+                    var successAlert = document.getElementById('success-alert');
+                    if (successAlert) {
+                        successAlert.classList.remove('d-none');
+                    }
+
+                    // enable submit button and restore original name
+                    submitButton.disabled = false;
+                    submitButton.textContent = originalButtonText;
+
+                    // reset form
+                    document.getElementById('download-form').reset();
+
+                    // Clear the cookie so it works on the next submit
+                    document.cookie = "fileDownloadToken=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+                }
+            }, 500); // Check every 500ms
+        });
+
+        // Helper function to read cookies
+        function getCookie(name) {
+            var parts = document.cookie.split(name + "=");
+            if (parts.length == 2) return parts.pop().split(";").shift();
+            return null;
+        }
+    </script>
     }
