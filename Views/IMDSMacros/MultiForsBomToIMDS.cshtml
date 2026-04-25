@@ -15,37 +15,33 @@
             <div class="card-body">
                 <form asp-action="MultiForsBomToIMDS" method="post" enctype="multipart/form-data" id="download-form">
                     <div class="mb-6">
-                        <label class="form-label fs-5" asp-for="CsvFiles">FORS BOM Folder (Must contain FORS CSV
-                            files)</label>
-                            <input asp-for="CsvFiles" type="file" class="form-control" multiple webkitdirectory directory
-                                   accept=".csv,text/csv" />
-                            <span asp-validation-for="CsvFiles" class="text-danger"></span>
-                        </div>
-                        <div class="mb-6">
-                            <label class="form-label fs-5" asp-for="DatabaseCSV">Database CSV</label>
-                            <input asp-for="DatabaseCSV" type="file" class="form-control" accept=".csv,text/csv" required />
-                            <span asp-validation-for="DatabaseCSV" class="text-danger"></span>
-                        </div>
+                        <label class="form-label fs-5" asp-for="CsvFiles">FORS BOM Folder (Must contain FORS CSV files)</label>
+                        <input asp-for="CsvFiles" type="file" class="form-control" multiple webkitdirectory directory
+                               accept=".csv,text/csv" />
+                        <span asp-validation-for="CsvFiles" class="text-danger"></span>
+                    </div>
+                    <div class="mb-6">
+                        <label class="form-label fs-5" asp-for="DatabaseCSV">IMDS Database CSV</label>
+                        <input asp-for="DatabaseCSV" type="file" class="form-control" accept=".csv,text/csv" required />
+                        <span asp-validation-for="DatabaseCSV" class="text-danger"></span>
+                    </div>
                     <button type="submit" class="btn btn-primary btn-lg px-10">Start</button>
 
-                        @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
-                        {
-                            <div class="text-danger mt-3">@Model.ErrorMessage</div>
-                        }
-                        <!-- Success Message (hidden by default) -->
-                        <div id="success-alert" class="alert alert-success mt-2 d-none">
-                            File successfully downloaded!
-                        </div>
-                    </form>
-                </div>
+                    @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
+                    {
+                        <div class="text-danger mt-3">@Model.ErrorMessage</div>
+                    }
+                    <!-- Success Message (hidden by default) -->
+                    <div id="success-alert" class="alert alert-success mt-2 d-none">
+                        File successfully downloaded!
+                    </div>
+                </form>
             </div>
         </div>
     </div>
+</div>
 
-    @section PageScripts {
-        @{
-            await Html.RenderPartialAsync("_ValidationScriptsPartial");
-        }
+@section PageScripts {
     <script>
         document.getElementById('download-form').addEventListener('submit', function () {
             // disable submit button
@@ -99,4 +95,4 @@
             return null;
         }
     </script>
-    }
+}

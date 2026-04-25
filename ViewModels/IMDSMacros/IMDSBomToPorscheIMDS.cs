@@ -8,8 +8,8 @@ namespace CSVWorker.ViewModels.IMDSMacros
         [Required]
         public IFormFile? DatabasePorscheCSV { get; set; }
 
-        [Required]
-        public IFormFile? IMDSFileCSV { get; set; }
+        // Accepts multiple files
+        public IEnumerable<IFormFile> CsvFiles { get; set; } = new List<IFormFile>();
 
         public string? ErrorMessage { get; set; }
     }
