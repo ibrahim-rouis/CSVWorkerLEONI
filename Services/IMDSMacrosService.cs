@@ -961,6 +961,14 @@ namespace CSVWorker.Services
                         }
                     }
 
+                    // remove 3 rows before last row, they are not needed for Porsche IMDS and create issues in the output
+                    if (imdsCsvRows.Count > 5)
+                    {
+                        imdsCsvRows.RemoveAt(imdsCsvRows.Count - 2);
+                        imdsCsvRows.RemoveAt(imdsCsvRows.Count - 2);
+                        imdsCsvRows.RemoveAt(imdsCsvRows.Count - 2);
+                    }
+
                     var imdsFileName = $"{productNumber}_output.csv";
                     // Add the IMDS output CSV to the ZIP archive
                     var imdsFileEntry = archive.CreateEntry(imdsFileName);
