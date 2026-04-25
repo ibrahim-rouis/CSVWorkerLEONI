@@ -1,7 +1,6 @@
 ﻿using CSVWorker.Libs;
 using CSVWorker.ViewModels.IMDSMacros;
 using System.IO.Compression;
-using System.Reflection.PortableExecutable;
 
 namespace CSVWorker.Services
 {
@@ -648,19 +647,6 @@ namespace CSVWorker.Services
             return outputCsvBytes;
         }
 
-        // This method is intended to update the Porsche database with the data from the LPCP file.
-        public /*async*/ Task<byte[]> UpdateDatabasePorsche(UpdateDatabasePorscheVM model, CancellationToken cancellationToken)
-        {
-            _logger.LogInformation("UpdateDatabasePorsche started. LPCP file={LPCPFileName}", model.LPCPFile?.FileName);
-
-            if (model.LPCPFile == null)
-            {
-                throw new NullReferenceException("Input must not be null. Usually it must be validated in controller before sending to service for processing.");
-            }
-
-            throw new NotImplementedException("The logic to update Porsche database is not implemented yet");
-        }
-
         // This method is intended to transform the IMDS BOM CSVs to Porsche IMDS CSVs, using the database for lookups as needed.
         public async Task<byte[]> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
         {
@@ -692,8 +678,18 @@ namespace CSVWorker.Services
             var database = new List<string[]>();
             using (var stream = model.DatabasePorscheCSV.OpenReadStream())
             {
-                using (var reader = new StreamReader(stream))
+                using (var readerRaw = new StreamReader(stream))
                 {
+                    // Read the entire CSV content as a string.
+                    var csvString = await readerRaw.ReadToEndAsync(cancellationToken);
+
+                    // Normalize the CSV string to ensure no row is split into multiple lines
+                    // due to embedded line breaks within quoted fields.
+                    var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
+
+                    // Use StringReader to read the normalized CSV string line by line.
+                    using var reader = new StringReader(normalizedCsvString);
+
                     /** Read header **/
                     var headerLine = await reader.ReadLineAsync(cancellationToken);
                     if (string.IsNullOrEmpty(headerLine))
@@ -764,12 +760,18 @@ namespace CSVWorker.Services
                             line = await reader.ReadLineAsync(cancellationToken);
                             if (line == null)
                             {
+                                _logger.LogWarning("File {FileName} is empty. Skipping this file.", file.FileName);
                                 break;
                             }
-                            var delimiter = CsvHelper.DetectDelimiter(line, ',');
+                            var delimiter = CsvHelper.DetectDelimiter(line, fallback: ',');
 
-                            // go back to the beginning of the file
-                            stream.Seek(0, SeekOrigin.Begin);
+                            var frow = CsvHelper.ParseLine(line, delimiter);
+                            if (frow != null)
+                            {
+                                IMDSHelper.ResizeAndFillRows(ref frow, 31);
+                                imdsCsvRows.Add(frow);
+                            }
+
 
                             while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                             {
@@ -788,13 +790,27 @@ namespace CSVWorker.Services
                     /** Validate IMDS BOM structure **/
                     if (imdsCsvRows[0][0] != "MDS_BEGIN")
                     {
+                        _logger.LogWarning("File {FileName} does not have valid IMDS BOM structure: first cell is not 'MDS_BEGIN'. Skipping this file.", file.FileName);
                         break;
                     }
 
                     if (imdsCsvRows.Count < 5)
                     {
+                        _logger.LogWarning("File {FileName} does not have valid IMDS BOM structure: it has less than 5 rows. Skipping this file.", file.FileName);
                         break;
                     }
+
+                    //// Check if a row has #N/A as node ID
+                    //// Skip file if it has missing nodes
+                    //foreach (var row in imdsCsvRows)
+                    //{
+                    //    if (row[imdsNodeIdIndex] == "#N/A")
+                    //    {
+                    //        _logger.LogWarning("File {FileName} has rows with '#N/A' as Node ID. This may indicate missing data in the IMDS BOM. Skipping this file.", file.FileName);
+                    //        break;
+                    //    }
+                    //}
+
                     /** END validate IMDS BOM structure **/
 
                     /** Trasnform to Porsche IMDS CSV **/
@@ -804,7 +820,7 @@ namespace CSVWorker.Services
 
                     var outputRows = new List<string[]>();
 
-                    // Put cross-sec for every row of type RS
+                    // Put cross-sec and article name for every row of type RS
                     foreach (var row in imdsCsvRows)
                     {
                         // Semi-components (RS) have cross-sec in the database,
@@ -814,7 +830,12 @@ namespace CSVWorker.Services
                             var partNumber = row[1];
                             if (databaseByPartNumber.TryGetValue(partNumber, out var dbrow))
                             {
+                                row[porscheIMDSDescriptionIndex] = string.IsNullOrEmpty(dbrow[databaseArticleNameIndex]) ? string.Empty : dbrow[databaseArticleNameIndex];
                                 row[porscheIMDCrossSecIndex] = dbrow[databaseCrossSecIndex]; // Cross-Sec column
+                            }
+                            else
+                            {
+                                row[porscheIMDSDescriptionIndex] = string.Empty;
                             }
                         }
                     }
@@ -825,18 +846,20 @@ namespace CSVWorker.Services
                     /** 
                      * We go for each row that has RS as type, 
                      * look for other materials who have same cross-sec and aggregate the weights
-                     * remove those rows and keep only keep the first one with the 
-                     * same cross-sec and its type to "C"
+                     * remove those rows and keep only keep the first one with the same cross-sec
                      * **/
 
                     // First aggregate weights based on cross-sec
+                    var totalWeight = 0.0;
                     var totalWeightbyCrossSec = new Dictionary<string, double>();
                     foreach (var row in imdsCsvRows)
                     {
-                        if (row[imdsTypeIndex] == "RS")
+                        if (row[imdsTypeIndex] == "RS" && double.TryParse(row[imdsWeightIndex].Replace(',', '.'), out var weight))
                         {
                             var crossSec = row[porscheIMDCrossSecIndex];
-                            if (string.IsNullOrEmpty(crossSec) || crossSec != "#N/A")
+                            totalWeight += weight;
+
+                            if (string.IsNullOrEmpty(crossSec) || crossSec == "#N/A")
                             {
                                 continue;
                             }
@@ -845,15 +868,18 @@ namespace CSVWorker.Services
                             {
                                 totalWeightbyCrossSec[crossSec] = 0;
                             }
-                            if (double.TryParse(row[imdsWeightIndex].Replace(',', '.'), out var weight))
+                            if (weight > 0.0)
                             {
                                 totalWeightbyCrossSec[crossSec] += weight;
                             }
                         }
                     }
 
+                    // set total weight in the specific cell for Porsche IMDS output
+                    imdsCsvRows[porscheIMDSWeightTotalIndex.Row][porscheIMDSWeightTotalIndex.Column] = totalWeight.ToString("F3");
+
                     // Remove duplicates with same cross-sec, keep only first one, 
-                    // update its type to "C", and assign the aggregated weight.
+                    // and assign the aggregated weight.
                     var seenCrossSecs = new HashSet<string>();
                     for (int i = 0; i < imdsCsvRows.Count; i++)
                     {
@@ -879,17 +905,11 @@ namespace CSVWorker.Services
                             // and false if it already exists (it's a duplicate)
                             if (seenCrossSecs.Add(crossSec))
                             {
-                                // This is the FIRST one. Update its type to "C".
-                                row[imdsTypeIndex] = "C";
-
-                                // set 1 at quantity index
-                                row[imdsQuantityIndex] = "1";
-
                                 // Update its weight to the aggregated total we calculated earlier
-                                if (totalWeightbyCrossSec.TryGetValue(crossSec, out var totalWeight))
+                                if (totalWeightbyCrossSec.TryGetValue(crossSec, out var totw))
                                 {
                                     // Make sure it matches the IMDS comma-decimal format
-                                    row[imdsWeightIndex] = totalWeight.ToString("F3");
+                                    row[imdsWeightIndex] = totw.ToString("F3");
                                 }
                             }
                             else
@@ -906,31 +926,64 @@ namespace CSVWorker.Services
                     // remove all cross-sec for all RS rows
                     foreach (var row in imdsCsvRows)
                     {
-                        if (row[imdsTypeIndex] == "RS")
+                        if (!string.IsNullOrEmpty(row[porscheIMDCrossSecIndex]))
                         {
                             row[porscheIMDCrossSecIndex] = string.Empty;
                         }
                     }
 
                     // duplicate RS rows
+                    // First one become C as type with 1 as quantity
+                    // second one becomes a child
                     for (int i = 0; i < imdsCsvRows.Count; i++)
                     {
                         var row = imdsCsvRows[i];
                         if (row[imdsTypeIndex] == "RS")
                         {
+                            var partnumber = row[imdsPartNumberIndex];
+
                             // Duplicate the row
                             var duplicatedRow = (string[])row.Clone();
+
+                            row[imdsTypeIndex] = "C";
+                            row[imdsQuantityIndex] = "1";
+                            row[imdsPartNumberIndex] = "_" + partnumber;
+                            row[imdsNodeIdIndex] = string.Empty;
+                            row[porscheIMDSnotApplicableIndex] = "NotApplicable";
+
+                            duplicatedRow[0] = "_" + partnumber;
+                            duplicatedRow[1] = partnumber;
+                            duplicatedRow[2] = partnumber;
+                            duplicatedRow[imdsQuantityIndex] = string.Empty;
+
                             imdsCsvRows.Insert(i + 1, duplicatedRow);
                             i++;
                         }
+                    }
+
+                    var imdsFileName = $"{productNumber}_output.csv";
+                    // Add the IMDS output CSV to the ZIP archive
+                    var imdsFileEntry = archive.CreateEntry(imdsFileName);
+                    await using (var entryStream = imdsFileEntry.Open())
+                    {
+                        // IMDS csv is commas separated.
+                        // unlike FORS BOM input csv files which are semicolon separated.
+                        var imdsFileEntryOutputBytes = await CsvHelper.ConvertListToCsv(imdsCsvRows, ',', cancellationToken);
+                        await entryStream.WriteAsync(imdsFileEntryOutputBytes, cancellationToken);
+                        await entryStream.FlushAsync(cancellationToken);
                     }
 
                     /** END Transform to Porsche IMDS CSV **/
                 }
                 /** End processing IMDS BOM files **/
             }
-        }
 
+            // Reset stream position so the Controller can return it as a File
+            zipStream.Position = 0;
+
+            _logger.LogInformation("Import5 finished. Generated {Count} BOM files inside ZIP.", model.CsvFiles.Count());
+            return zipStream.ToArray();
+        }
 
     }
 }
