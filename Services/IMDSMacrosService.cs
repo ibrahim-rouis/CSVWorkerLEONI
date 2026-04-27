@@ -48,9 +48,9 @@ namespace CSVWorker.Services
             // RS (Semi-Components / Materials / Rohstoff)
             List<string> rsMaterialGroups = new List<string>
                 {
-                    "SCHL", "LTG", "BAND", "WUD",
-                    "FOL", "PUH", "HFA", "GLU", "GRA", "HAERT", "HARZ", "LWL",
-                    "SLTG", "LOE", "SCHRU", "DOK", "FFC", "ZINN", "GS", "REST"
+                    "LTG", "BAND", "WUD", "FOL", "PUH",
+                    "HFA", "GLU", "GRA", "HAERT", "HARZ", "LWL",
+                    "SLTG", "LOE", "DOK", "FFC", "ZINN", "GS", "REST"
                 };
             // Ignored material groups that are not relevant for IMDS 
             List<string> ignoreMaterialGroups = new List<string>
@@ -828,14 +828,19 @@ namespace CSVWorker.Services
                         if (row[imdsTypeIndex] == "RS")
                         {
                             var partNumber = row[1];
+
+                            // Partnumber found in porsche database
                             if (databaseByPartNumber.TryGetValue(partNumber, out var dbrow))
                             {
-                                row[porscheIMDSDescriptionIndex] = string.IsNullOrEmpty(dbrow[databaseArticleNameIndex]) ? string.Empty : dbrow[databaseArticleNameIndex];
+                                // Set description
+                                row[porscheIMDSDescriptionIndex] = string.IsNullOrEmpty(dbrow[databaseArticleNameIndex]) ? "#N/A#" : dbrow[databaseArticleNameIndex];
+
+                                // Set cross-sec (it will be removed later)
                                 row[porscheIMDCrossSecIndex] = dbrow[databaseCrossSecIndex]; // Cross-Sec column
                             }
                             else
                             {
-                                row[porscheIMDSDescriptionIndex] = string.Empty;
+                                row[porscheIMDSDescriptionIndex] = "#N/A#";
                             }
                         }
                     }
