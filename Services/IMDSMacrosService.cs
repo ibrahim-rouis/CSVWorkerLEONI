@@ -818,8 +818,6 @@ namespace CSVWorker.Services
                     // get the product number
                     var productNumber = imdsCsvRows[2][0];
 
-                    var outputRows = new List<string[]>();
-
                     // Put cross-sec and article name for every row of type RS
                     foreach (var row in imdsCsvRows)
                     {
