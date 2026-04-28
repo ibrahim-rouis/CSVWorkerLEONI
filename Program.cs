@@ -35,9 +35,11 @@ if (!app.Environment.IsDevelopment())
     app.UseHsts();
 }
 
+// Intercept HTTP errors and route them to the Home Controller's NotFound action
+app.UseStatusCodePagesWithReExecute("/NotFound");
+
 app.UseHttpsRedirection();
 app.UseStaticFiles();
-
 app.UseRouting();
 
 app.UseAuthorization();
