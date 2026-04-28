@@ -369,7 +369,7 @@ namespace CSVWorker.Services
             // Reset stream position so the Controller can return it as a File
             zipStream.Position = 0;
 
-            _logger.LogInformation("Import5 finished. Generated {Count} BOM files inside ZIP.", model.CsvFiles.Count());
+            _logger.LogInformation("MultiForsBomToIMDS finished. Generated {Count} BOM files inside ZIP.", model.CsvFiles.Count());
             return zipStream.ToArray();
         }
 
@@ -655,6 +655,8 @@ namespace CSVWorker.Services
                 throw new ArgumentException("Input missing - please provide at least one FORS BOM CSV file and a Database CSV file.");
             }
 
+            _logger.LogInformation("IMDSBomToPorscheIMDS started. Database file={DatabaseFileName}, Number of IMDS BOM files={BOMFilesCount}", model.DatabasePorscheCSV.FileName, model.CsvFiles.Count());
+
             // Porsche database indexes
             int databasePartNumberIndex;
             int databaseArticleNameIndex;
@@ -769,7 +771,7 @@ namespace CSVWorker.Services
                             if (line == null)
                             {
                                 _logger.LogWarning("File {FileName} is empty. Skipping this file.", file.FileName);
-                                break;
+                                continue;
                             }
                             var delimiter = CsvHelper.DetectDelimiter(line, fallback: ',');
 
@@ -799,13 +801,13 @@ namespace CSVWorker.Services
                     if (imdsCsvRows[0][0] != "MDS_BEGIN")
                     {
                         _logger.LogWarning("File {FileName} does not have valid IMDS BOM structure: first cell is not 'MDS_BEGIN'. Skipping this file.", file.FileName);
-                        break;
+                        continue;
                     }
 
                     if (imdsCsvRows.Count < 5)
                     {
                         _logger.LogWarning("File {FileName} does not have valid IMDS BOM structure: it has less than 5 rows. Skipping this file.", file.FileName);
-                        break;
+                        continue;
                     }
 
                     // Check if a row has #N/A as node ID
@@ -816,12 +818,17 @@ namespace CSVWorker.Services
                         if (row[imdsNodeIdIndex] == "#N/A")
                         {
                             hasMissingNodes = true;
+                            break;
                         }
                     }
                     if (hasMissingNodes)
                     {
                         _logger.LogWarning("File {FileName} has missing nodes (Node ID is #N/A in some rows). Skipping this file.", file.FileName);
                         continue;
+                    }
+                    else
+                    {
+                        _logger.LogInformation("File {FileName} has valid IMDS BOM structure. Processing this file.", file.FileName);
                     }
 
                     /** END validate IMDS BOM structure **/
@@ -1043,7 +1050,7 @@ namespace CSVWorker.Services
             // Reset stream position so the Controller can return it as a File
             zipStream.Position = 0;
 
-            _logger.LogInformation("Import5 finished. Generated {Count} BOM files inside ZIP.", model.CsvFiles.Count());
+            _logger.LogInformation("IMDSBomToPorsche finished.");
             return zipStream.ToArray();
         }
 
