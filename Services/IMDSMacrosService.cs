@@ -349,7 +349,7 @@ namespace CSVWorker.Services
                 // to the ZIP with the details of the missing nodes.
                 // The CSV file will be "missing_nodes.csv" 
                 // and will contain two columns: "PART/ITEM NO/" and "Node ID".
-                if (missingNodes.Count > 0)
+                if (missingNodes.Count > 1)
                 {
                     // first remove rows with duplicate part numbers in missingNodes, keeping only the first occurrence.
                     missingNodes = missingNodes.DistinctBy(row => row[0]).ToList();
