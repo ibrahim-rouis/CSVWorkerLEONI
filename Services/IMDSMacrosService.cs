@@ -734,6 +734,14 @@ namespace CSVWorker.Services
             // to be used later when processing the IMDS BOM files.
             var databaseByPartNumber = CsvHelper.BuildFastLookupDictionary(database, databasePartNumberIndex);
 
+            // Missing articles
+            // Will be exported to "missing_articles.csv"
+            var missingArticles = new List<string[]>
+            {
+                (["PART/ITEM NO/", "Article Name"])
+            };
+
+
             // Create a ZIP archive in memory and add the generated CSV files as an entry.
             // The ZIP file will contain one CSV file with the IMDS data, 
             // and if there are missing nodes, another CSV file with the missing nodes data.
@@ -818,6 +826,8 @@ namespace CSVWorker.Services
                     // get the product number
                     var productNumber = imdsCsvRows[2][0];
 
+                    bool currentFileHasMissingArticles = false;
+
                     // Put cross-sec and article name for every row of type RS
                     foreach (var row in imdsCsvRows)
                     {
@@ -830,15 +840,29 @@ namespace CSVWorker.Services
                             // Partnumber found in porsche database
                             if (databaseByPartNumber.TryGetValue(partNumber, out var dbrow))
                             {
-                                // Set description
-                                row[porscheIMDSDescriptionIndex] = string.IsNullOrEmpty(dbrow[databaseArticleNameIndex]) ? "#N/A#" : dbrow[databaseArticleNameIndex];
+                                // Set description (if not found , set #N/A# to be able to identify missing articles later in the output)
+                                var articleName = dbrow[databaseArticleNameIndex];
+                                if (!string.IsNullOrEmpty(articleName))
+                                {
+                                    row[porscheIMDSDescriptionIndex] = articleName;
+                                }
+                                else
+                                {
+                                    if (!currentFileHasMissingArticles)
+                                    {
+                                        currentFileHasMissingArticles = true;
+                                    }
+                                    missingArticles.Add([partNumber, "#N/A#"]);
+                                }
 
                                 // Set cross-sec (it will be removed later)
                                 row[porscheIMDCrossSecIndex] = dbrow[databaseCrossSecIndex]; // Cross-Sec column
                             }
                             else
                             {
+                                currentFileHasMissingArticles = true;
                                 row[porscheIMDSDescriptionIndex] = "#N/A#";
+                                missingArticles.Add([partNumber, "#N/A#"]);
                             }
                         }
                     }
@@ -973,6 +997,14 @@ namespace CSVWorker.Services
                     }
 
                     var imdsFileName = $"{productNumber}_output.csv";
+
+                    // If there are missing articles for the current file,
+                    // we change the file name to include "missing_articles" to make it easily identifiable.
+                    if (currentFileHasMissingArticles)
+                    {
+                        imdsFileName = $"0000_missing_articles_{productNumber}_output.csv";
+                    }
+
                     // Add the IMDS output CSV to the ZIP archive
                     var imdsFileEntry = archive.CreateEntry(imdsFileName);
                     await using (var entryStream = imdsFileEntry.Open())
@@ -987,6 +1019,26 @@ namespace CSVWorker.Services
                     /** END Transform to Porsche IMDS CSV **/
                 }
                 /** End processing IMDS BOM files **/
+
+                // If there are missing articles, we add another entry 
+                // to the ZIP with the details of the missing articles.
+                // The CSV file will be "missing_articles.csv" 
+                // and will contain two columns: "PART/ITEM NO/" and "Node ID".
+                if (missingArticles.Count > 1)
+                {
+                    // first remove rows with duplicate part numbers in missingArticles, keeping only the first occurrence.
+                    missingArticles = missingArticles.DistinctBy(row => row[0]).ToList();
+
+                    // Add missing_articles.csv to ZIP archive
+                    var missingArticlesFileName = "missing_articles.csv";
+                    var missingArticlesFileEntry = archive.CreateEntry(missingArticlesFileName);
+                    await using (var entryStream2 = missingArticlesFileEntry.Open())
+                    {
+                        var missingArticlesOuputBytes = await CsvHelper.ConvertListToCsv(missingArticles, ';', cancellationToken);
+                        await entryStream2.WriteAsync(missingArticlesOuputBytes, cancellationToken);
+                        await entryStream2.FlushAsync(cancellationToken);
+                    }
+                }
             }
 
             // Reset stream position so the Controller can return it as a File
