@@ -821,7 +821,7 @@ namespace CSVWorker.Services
                     if (hasMissingNodes)
                     {
                         _logger.LogWarning("File {FileName} has missing nodes (Node ID is #N/A in some rows). Skipping this file.", file.FileName);
-                        break;
+                        continue;
                     }
 
                     /** END validate IMDS BOM structure **/
