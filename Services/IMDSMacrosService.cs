@@ -808,16 +808,21 @@ namespace CSVWorker.Services
                         break;
                     }
 
-                    //// Check if a row has #N/A as node ID
-                    //// Skip file if it has missing nodes
-                    //foreach (var row in imdsCsvRows)
-                    //{
-                    //    if (row[imdsNodeIdIndex] == "#N/A")
-                    //    {
-                    //        _logger.LogWarning("File {FileName} has rows with '#N/A' as Node ID. This may indicate missing data in the IMDS BOM. Skipping this file.", file.FileName);
-                    //        break;
-                    //    }
-                    //}
+                    // Check if a row has #N/A as node ID
+                    // Skip file if it has missing nodes
+                    bool hasMissingNodes = false;
+                    foreach (var row in imdsCsvRows)
+                    {
+                        if (row[imdsNodeIdIndex] == "#N/A")
+                        {
+                            hasMissingNodes = true;
+                        }
+                    }
+                    if (hasMissingNodes)
+                    {
+                        _logger.LogWarning("File {FileName} has missing nodes (Node ID is #N/A in some rows). Skipping this file.", file.FileName);
+                        break;
+                    }
 
                     /** END validate IMDS BOM structure **/
 
@@ -911,12 +916,6 @@ namespace CSVWorker.Services
                     for (int i = 0; i < imdsCsvRows.Count; i++)
                     {
                         var row = imdsCsvRows[i];
-
-                        // Replace "#N/A" with "NA" for Node ID
-                        if (row[imdsNodeIdIndex] == "#N/A")
-                        {
-                            row[imdsNodeIdIndex] = "NA";
-                        }
 
                         if (row[imdsTypeIndex] == "RS")
                         {
