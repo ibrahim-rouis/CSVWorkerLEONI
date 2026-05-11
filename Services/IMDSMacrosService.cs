@@ -262,7 +262,7 @@ namespace CSVWorker.Services
                                     {
                                         currentFileHasMissingNodes = true;
                                     }
-                                    missingNodes.Add([IMDSHelper.RemoveTrailingLetters(partNumber), "#N/A"]);
+                                    missingNodes.Add([partNumber, "#N/A"]);
                                 }
 
                                 // Append to IMDS output
@@ -289,7 +289,7 @@ namespace CSVWorker.Services
 
                                 // Find Node ID for this part number from the Database CSV, if available
                                 var nodeId = IMDSHelper.GetNodeID(partNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
-
+                                
                                 // if nodeId is null (not found)
                                 if (nodeId == null)
                                 {
@@ -297,7 +297,7 @@ namespace CSVWorker.Services
                                     {
                                         currentFileHasMissingNodes = true;
                                     }
-                                    missingNodes.Add([IMDSHelper.RemoveTrailingLetters(partNumber), "#N/A"]);
+                                    missingNodes.Add([partNumber, "#N/A"]);
                                 }
 
                                 outputRow.Add([productNumber, partNumber, partNumber, quantity, string.Empty, string.Empty, string.Empty, "RC", nodeId ?? "#N/A", string.Empty, string.Empty]);

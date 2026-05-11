@@ -2,13 +2,13 @@
 
 namespace CSVWorker.Libs
 {
-    public interface IMDSHelper
+    public partial interface IMDSHelper
     {
+        [GeneratedRegex(@"^P(\d+)[A-Za-z]*$")]
+        private static partial Regex PartNumberRegex();
+
         static string? GetNodeID(string partNumber, Dictionary<string, IReadOnlyList<string>> databaseByLeoniPart, Dictionary<string, IReadOnlyList<string>> databaseByFORSPN, Dictionary<string, IReadOnlyList<string>> databaseBySIGIPN, Dictionary<string, IReadOnlyList<string>> databaseByVisualPN, Dictionary<string, IReadOnlyList<string>> databaseByWGK, int databaseNodeIdIndex)
         {
-            // Remove trailing letters from part number, for example P0123456AA should become P0123456
-            partNumber = RemoveTrailingLetters(partNumber);
-
             // Find Node ID for this part number from the Database CSV, if available
             string nodeId = string.Empty;
             if (databaseByLeoniPart.TryGetValue(partNumber, out var databaseRow))
@@ -32,10 +32,17 @@ namespace CSVWorker.Libs
                 nodeId = CsvHelper.TryGetValue([.. databaseRowWGK], databaseNodeIdIndex) ?? string.Empty;
             }
 
-            // if nodeId is empty or white space we change it to "#N/A" and add it to missing nodes 
+            // if nodeId is still empty or white space and partNumber has trailing letters, we remove them and try again
             if (string.IsNullOrWhiteSpace(nodeId))
             {
-                return null;
+                string trimmedPartNumber = RemoveTrailingLetters(partNumber);
+                if (partNumber != trimmedPartNumber)
+                {
+                    return GetNodeID(trimmedPartNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
+                } else
+                {
+                    return null;
+                }
             }
 
             return nodeId;
@@ -52,11 +59,8 @@ namespace CSVWorker.Libs
             if (string.IsNullOrEmpty(input))
                 return input;
 
-            // Pattern breakdown:
-            // ^P         - Starts with 'P'
-            // (\d+)      - Followed by at least one number (captured in Group 1)
-            // [A-Za-z]*$ - Followed by optional letters until the end of the string
-            var match = Regex.Match(input, @"^P(\d+)[A-Za-z]*$");
+            // Use the generated regex to match the pattern
+            var match = PartNumberRegex().Match(input);
 
             if (match.Success)
             {
