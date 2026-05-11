@@ -262,7 +262,7 @@ namespace CSVWorker.Services
                                     {
                                         currentFileHasMissingNodes = true;
                                     }
-                                    missingNodes.Add([partNumber, "#N/A"]);
+                                    missingNodes.Add([IMDSHelper.RemoveTrailingLetters(partNumber), "#N/A"]);
                                 }
 
                                 // Append to IMDS output
@@ -297,7 +297,7 @@ namespace CSVWorker.Services
                                     {
                                         currentFileHasMissingNodes = true;
                                     }
-                                    missingNodes.Add([partNumber, "#N/A"]);
+                                    missingNodes.Add([IMDSHelper.RemoveTrailingLetters(partNumber), "#N/A"]);
                                 }
 
                                 outputRow.Add([productNumber, partNumber, partNumber, quantity, string.Empty, string.Empty, string.Empty, "RC", nodeId ?? "#N/A", string.Empty, string.Empty]);

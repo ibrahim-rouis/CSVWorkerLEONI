@@ -1,9 +1,14 @@
-﻿namespace CSVWorker.Libs
+﻿using System.Text.RegularExpressions;
+
+namespace CSVWorker.Libs
 {
     public interface IMDSHelper
     {
         static string? GetNodeID(string partNumber, Dictionary<string, IReadOnlyList<string>> databaseByLeoniPart, Dictionary<string, IReadOnlyList<string>> databaseByFORSPN, Dictionary<string, IReadOnlyList<string>> databaseBySIGIPN, Dictionary<string, IReadOnlyList<string>> databaseByVisualPN, Dictionary<string, IReadOnlyList<string>> databaseByWGK, int databaseNodeIdIndex)
         {
+            // Remove trailing letters from part number, for example P0123456AA should become P0123456
+            partNumber = RemoveTrailingLetters(partNumber);
+
             // Find Node ID for this part number from the Database CSV, if available
             string nodeId = string.Empty;
             if (databaseByLeoniPart.TryGetValue(partNumber, out var databaseRow))
@@ -34,6 +39,32 @@
             }
 
             return nodeId;
+        }
+
+        /// <summary>
+        /// Removes trailing letters from the end of a string if it starts with 'P' 
+        /// followed by at least one number, and ends with optional letters.
+        /// </summary>
+        /// <param name="input">The input string.</param>
+        /// <returns>The string with trailing letters removed if it matches the pattern; otherwise, the original string.</returns>
+        static string RemoveTrailingLetters(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            // Pattern breakdown:
+            // ^P         - Starts with 'P'
+            // (\d+)      - Followed by at least one number (captured in Group 1)
+            // [A-Za-z]*$ - Followed by optional letters until the end of the string
+            var match = Regex.Match(input, @"^P(\d+)[A-Za-z]*$");
+
+            if (match.Success)
+            {
+                // Returns 'P' + the numbers captured in Group 1
+                return "P" + match.Groups[1].Value;
+            }
+
+            return input;
         }
 
         /// <summary>
