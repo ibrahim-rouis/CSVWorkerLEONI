@@ -44,12 +44,15 @@ namespace CSVWorker.Services
             const int forsBomMaterialGroupIndex = 3;
             const int forsBomWeightIndex = 11;
             const int forsBomQuantityIndex = 4;
+            const int forsBomMUIndex = 5;
 
-            // RS (Semi-Components / Materials / Rohstoff)
-            List<string> rsMaterialGroups = new List<string>
+            // RC's MUs
+            List<string> rcMU = new List<string>
                 {
-                   "BAND", "GRA", "FOL", "GLU", "HAERT", "HARZ", "SLTG", "LOE", "LTG", "ZINN"
+                   "ST"
                 };
+
+
             // Ignored material groups that are not relevant for IMDS 
             List<string> ignoreMaterialGroups = new List<string>
                 {
@@ -190,17 +193,8 @@ namespace CSVWorker.Services
                                         // do nothing, ignore these material groups
                                         continue;
                                     }
-                                    // Cables and tapes (RS)
-                                    else if (rsMaterialGroups.Contains(row[forsBomMaterialGroupIndex]))
-                                    {
-                                        if (!cablesAndTapes.ContainsKey(productNumber))
-                                        {
-                                            cablesAndTapes[productNumber] = new List<string[]>();
-                                        }
-                                        cablesAndTapes[productNumber].Add(row);
-                                    }
                                     // Discrete Components (RC)
-                                    else
+                                    else if (rcMU.Contains(row[forsBomMUIndex]))
                                     {
                                         if (!rcMaterials.ContainsKey(productNumber))
                                         {
@@ -208,6 +202,16 @@ namespace CSVWorker.Services
                                         }
                                         rcMaterials[productNumber].Add(row);
                                     }
+                                    // Cables and tapes (RS)
+                                    else
+                                    {
+                                        if (!cablesAndTapes.ContainsKey(productNumber))
+                                        {
+                                            cablesAndTapes[productNumber] = new List<string[]>();
+                                        }
+                                        cablesAndTapes[productNumber].Add(row);
+                                    }
+      
                                 }
                             }
                         }
