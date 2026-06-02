@@ -1,7 +1,9 @@
-using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+using CSVWorker.Configuration;
 using CSVWorker.Models.ViewModels;
 using CSVWorker.Services;
+using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Options;
 
 namespace CSVWorker.Controllers
 {
@@ -10,11 +12,13 @@ namespace CSVWorker.Controllers
     {
         private readonly LogViewerService _logViewerService;
         private readonly ILogger<LogViewerController> _logger;
+        private readonly CSVWorkerConfig _config;
 
-        public LogViewerController(LogViewerService logViewerService, ILogger<LogViewerController> logger)
+        public LogViewerController(LogViewerService logViewerService, ILogger<LogViewerController> logger, IOptions<CSVWorkerConfig> config)
         {
             _logViewerService = logViewerService;
             _logger = logger;
+            _config = config.Value;
         }
 
         public async Task<IActionResult> Index(DateTime? date, int? year, int? month,
@@ -72,7 +76,7 @@ namespace CSVWorker.Controllers
             }
 
             var content = string.Join(Environment.NewLine, entries.Select(e => e.RawLine));
-            var fileName = $"webreport-logs-{date:yyyy-MM-dd}.txt";
+            var fileName = $"csvworker-logs-{date:yyyy-MM-dd}.txt";
 
             return File(System.Text.Encoding.UTF8.GetBytes(content), "text/plain", fileName);
         }
@@ -87,7 +91,7 @@ namespace CSVWorker.Controllers
                 return NotFound("No logs found for the specified month.");
             }
             var content = string.Join(Environment.NewLine, entries.Select(e => e.RawLine));
-            var fileName = $"webreport-logs-{year}-{month:00}.txt";
+            var fileName = $"csvworker-logs-{year}-{month:00}.txt";
             return File(System.Text.Encoding.UTF8.GetBytes(content), "text/plain", fileName);
         }
 
@@ -124,8 +128,8 @@ namespace CSVWorker.Controllers
             }
             var content = string.Join(Environment.NewLine, model.LogEntries.Select(e => e.RawLine));
             var fileName = model.ViewMode == "month"
-                ? $"webreport-logs-{model.SelectedYear}-{model.SelectedMonth:00}.txt"
-                : $"webreport-logs-{model.SelectedDate:yyyy-MM-dd}.txt";
+                ? $"{_config.LogsPrefix}-logs-{model.SelectedYear}-{model.SelectedMonth:00}.txt"
+                : $"{_config.LogsPrefix}-logs-{model.SelectedDate:yyyy-MM-dd}.txt";
             return File(System.Text.Encoding.UTF8.GetBytes(content), "text/plain", fileName);
         }
     }

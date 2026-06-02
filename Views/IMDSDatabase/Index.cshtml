@@ -1,0 +1,163 @@
+﻿@using CSVWorker.Models.Entities
+@using System.Text.Json
+
+@model PagedResult<IMDSDatabaseRecord>
+
+@{
+    ViewData["Title"] = "Index";
+    int totalPages = Model.TotalPages;
+    int currentPage = Model.PageNumber;
+    int maxPagesToShow = 5;
+    int startPage = 1;
+    int endPage = totalPages;
+    var query = ViewData["query"] as string ?? "";
+
+
+    if (totalPages > maxPagesToShow)
+    {
+        if (currentPage <= 3)
+        {
+            startPage = 1;
+            endPage = maxPagesToShow;
+        }
+        else if (currentPage + 2 >= totalPages)
+        {
+            startPage = totalPages - maxPagesToShow + 1;
+            endPage = totalPages;
+        }
+        else
+        {
+            startPage = currentPage - 2;
+            endPage = currentPage + 2;
+        }
+    }
+}
+
+<!-- Menu -->
+<div class="card-body mb-3">
+        <a asp-action="Create" class="btn rounded-pill btn-primary">Add new record</a>
+        <a asp-action="UpdateDatabase" class="btn rounded-pill btn-primary">Update from A2</a>
+</div>
+
+<!-- Filter Card -->
+<div class="card mb-4">
+    <h5 class="card-header py-2">Filter</h5>
+    <div class="card-body">
+        <form method="get" asp-action="Index">
+            <div class="row g-3 align-items-end">
+                <div class="col-md-2">
+                    <label class="form-label"><i class="fas fa-search"></i> Search</label>
+                    <input type="text" name="query" class="form-control form-control-sm"
+                           placeholder="Search..." value="@ViewData["query"]" />
+                </div>
+                <div class="col-auto d-flex justify-content-end">
+                    <button type="submit" class="btn btn-icon rounded-pill btn-primary me-2" title="Search">
+                        <span class="icon-base bx bx-search icon-md"></span>
+                    </button>
+                    <a href="@Url.Action("Index")" class="btn btn-icon rounded-pill btn-secondary me-2" title="Reset">
+                        <span class="icon-base bx bx-undo icon-md"></span>
+                    </a>
+                </div>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Basic Bootstrap Table -->
+<div class="card">
+    <h5 class="card-header">IMDS Database</h5>
+    <div class="table-responsive text-nowrap">
+        <table class="table table-striped">
+            <thead>
+                <tr>
+                    <th>Part Number</th>
+                    <th>Fors PN</th>
+                    <th>Sigip PN</th>
+                    <th>Visual PN</th>
+                    <th>WGK</th>
+                    <th>Node ID</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody class="table-border-bottom-0">
+                @foreach (var item in Model.Items)
+                {
+                    <tr>
+                        <td>@item.PartNumber</td>
+                        <td>@item.ForsPN</td>
+                        <td>@item.SIGIPPN</td>
+                        <td>@item.VisualPN</td>
+                        <td>@item.WGK</td>
+                        <td>@item.NodeID</td>
+                        <td>
+                            <a class="btn btn-icon btn-outline-warning mx-1" asp-action="Edit" asp-route-id="@item.Id">
+                                <span class="icon-base bx bx-edit-alt icon-md text-warning"></span>
+                            </a>
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Basic Pagination -->
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center mt-5">
+        @if (Model.HasPreviousPage)
+        {
+            <li class="page-item first">
+                <a class="page-link" asp-action="Index" asp-route-pageNumber="1" asp-route-query="@query"><i class="icon-base bx bx-chevrons-left icon-sm"></i></a>
+            </li>
+            <li class="page-item prev">
+                <a class="page-link" asp-action="Index" asp-route-pageNumber="@(currentPage - 1)" asp-route-query="@query"><i class="icon-base bx bx-chevron-left icon-sm"></i></a>
+            </li>
+        }
+        else
+        {
+            <li class="page-item first disabled">
+                <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevrons-left icon-sm"></i></a>
+            </li>
+            <li class="page-item prev disabled">
+                <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevron-left icon-sm"></i></a>
+            </li>
+        }
+
+        @for (int i = startPage; i <= endPage; i++)
+        {
+            @if (i == currentPage)
+            {
+                <li class="page-item active">
+                    <a class="page-link" href="javascript:void(0);">@i</a>
+                </li>
+            }
+            else
+            {
+                <li class="page-item">
+                    <a class="page-link" asp-action="Index" asp-route-pageNumber="@i" asp-route-query="@query">@i</a>
+                </li>
+            }
+        }
+
+        @if (Model.HasNextPage)
+        {
+            <li class="page-item next">
+                <a class="page-link" asp-action="Index" asp-route-pageNumber="@(currentPage + 1)" asp-route-query="@query"><i class="icon-base bx bx-chevron-right icon-sm"></i></a>
+            </li>
+            <li class="page-item last">
+                <a class="page-link" asp-action="Index" asp-route-pageNumber="@(totalPages)" asp-route-query="@query"><i class="icon-base bx bx-chevrons-right icon-sm"></i></a>
+            </li>
+        }
+        else
+        {
+            <li class="page-item next disabled">
+                <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevron-right icon-sm"></i></a>
+            </li>
+            <li class="page-item last disabled">
+                <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevrons-right icon-sm"></i></a>
+            </li>
+        }
+    </ul>
+</nav>
+<!--/ Basic Pagination -->
+<!--/ Basic Bootstrap Table -->

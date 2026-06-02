@@ -11,5 +11,7 @@ namespace CSVWorker.Models.ViewModels.IMDSMacros
         public IFormFile? A2File { get; set; }
 
         public string? ErrorMessage { get; set; }
+
+        public bool? Success { get; set; }
     }
 }

@@ -4,6 +4,7 @@ using CSVWorker.Services;
 using CSVWorker.Services.LDAP;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
@@ -49,8 +50,9 @@ builder.Services.AddMemoryCache();
 // ClaimsTransformation fetched user roles through LDAP and add them to user roles claims
 builder.Services.AddTransient<IClaimsTransformation, LdapClaimsTransformer>();
 
-// IMDS Service
-builder.Services.AddSingleton<IMDSMacrosService>();
+// IMDS Services
+builder.Services.AddScoped<IMDSMacrosService>();
+builder.Services.AddScoped<IMDSDatabaseService>();
 
 // Logs service
 builder.Services.AddScoped<LogViewerService>();
@@ -58,8 +60,8 @@ builder.Services.AddScoped<LogViewerService>();
 
 /* ************* Custom configurations binding setup ***************** */
 
-// Bind WebReportConfig from appsettings.json to the WebReportConfig class and make it available for injection
-builder.Services.Configure<CSVWorkerConfig>(builder.Configuration.GetSection("WebReportConfig"));
+// Bind CsvWorkerConfig from appsettings.json to the CsvWorkerConfig class and make it available for injection
+builder.Services.Configure<CSVWorkerConfig>(builder.Configuration.GetSection("CsvWorkerConfig"));
 
 // Bind LdapConfig from appsettings.json
 builder.Services.Configure<LdapConfig>(builder.Configuration.GetSection("LdapConfig"));
@@ -78,7 +80,10 @@ authBuilder.AddNegotiate();
 
 builder.Services.AddAuthorization(options =>
 {
-    options.FallbackPolicy = options.DefaultPolicy;
+    // Require authenticated user for all endpoints by default
+    options.FallbackPolicy = new AuthorizationPolicyBuilder()
+         .RequireAuthenticatedUser()
+         .Build();
 });
 
 var app = builder.Build();

@@ -6,5 +6,7 @@
     {
         public int DefaultPageSize { get; set; } = 5;
         public int DefaultLogsHistoryCount { get; set; } = 30;
+
+        public string? LogsPrefix { get; set; }
     }
 }

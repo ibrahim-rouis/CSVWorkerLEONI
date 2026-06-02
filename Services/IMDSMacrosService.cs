@@ -24,7 +24,7 @@ namespace CSVWorker.Services
         /// <exception cref="CSVWorkerInvalidDataException">Thrown when the Database CSV file header is invalid or empty.</exception>
         public async Task<byte[]> MultiForsBomToIMDS(MultiForsBomToIMDSBomVM model, CancellationToken cancellationToken)
         {
-            _logger.LogInformation("MultiForsBomToIMDS started. CSV files count={CsvFilesCount}, Database CSV provided={DatabaseCsvName}", model.CsvFiles?.Count() ?? 0, model.DatabaseCSV?.FileName);
+            _logger.LogDebug("MultiForsBomToIMDS started. CSV files count={CsvFilesCount}, Database CSV provided={DatabaseCsvName}", model.CsvFiles?.Count() ?? 0, model.DatabaseCSV?.FileName);
 
             if (model.CsvFiles == null || !model.CsvFiles.Any() || model.DatabaseCSV == null)
             {
@@ -212,7 +212,7 @@ namespace CSVWorker.Services
                                         }
                                         cablesAndTapes[productNumber].Add(row);
                                     }
-      
+
                                 }
                             }
                         }
@@ -222,8 +222,6 @@ namespace CSVWorker.Services
 
                     foreach (var productNumber in productNumbers)
                     {
-                        _logger.LogInformation("Processing product number {ProductNumber} from file {FileName} to IMDS output", productNumber, file.FileName);
-
                         // current file has missing nodes
                         bool currentFileHasMissingNodes = false;
 
@@ -294,7 +292,7 @@ namespace CSVWorker.Services
 
                                 // Find Node ID for this part number from the Database CSV, if available
                                 var nodeId = IMDSHelper.GetNodeID(partNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
-                                
+
                                 // if nodeId is null (not found)
                                 if (nodeId == null)
                                 {
@@ -372,291 +370,8 @@ namespace CSVWorker.Services
             // Reset stream position so the Controller can return it as a File
             zipStream.Position = 0;
 
-            _logger.LogInformation("MultiForsBomToIMDS finished. Generated {Count} BOM files inside ZIP.", model.CsvFiles.Count());
+            _logger.LogDebug("MultiForsBomToIMDS finished. Generated {Count} BOM files inside ZIP.", model.CsvFiles.Count());
             return zipStream.ToArray();
-        }
-
-        /// <summary>
-        /// Updates the database by processing and merging data from LPCP and A2 CSV files, enriching LPCP records with
-        /// Node IDs from A2, and returns the result as a CSV byte array.
-        /// </summary>
-        /// <param name="model">The view model containing the LPCP and A2 files to process.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A byte array containing the merged and enriched CSV data.</returns>
-        /// <exception cref="CSVWorkerArgumentException">Thrown when either the LPCP file or A2 file is null.</exception>
-        /// <exception cref="CSVWorkerInvalidDataException">Thrown when the header of the LPCP or A2 file is invalid or empty.</exception>
-        public async Task<byte[]> UpdateDatabaseIMDS(UpdateDatabaseVM model, CancellationToken cancellationToken)
-        {
-            _logger.LogInformation("UpdateDatabase started. LPCP file={LPCPFileName}, A2 file={A2FileName}", model.LPCPFile?.FileName, model.A2File?.FileName);
-
-            if (model.LPCPFile == null || model.A2File == null)
-            {
-                throw new CSVWorkerArgumentException("Input must not be null. Usually it must be validated in controller before sending to service for processing.");
-            }
-
-            var lpcpDoc = new List<string[]>();
-            var a2Doc = new List<string[]>();
-
-            // LPCP headers indexes.
-            // we will determine the actual indexes dynamically at runtime by reading the header row.
-            int lpcpLeoniPartIndex;
-            int lpcpForsPnIndex;
-            int lpcpSigipPnIndex;
-            int lpcpVisualPnIndex;
-            int lpcpWGKIndex;
-
-            // A2 headers indexes
-            // we will determine the actual indexes dynamically at runtime by reading the header row.
-            int a2LPIndex;
-            int a2NodeIdIndex;
-
-            /** Load LPCP and A2 CSV files **/
-
-            /** Load LPCP **/
-            using (var stream = model.LPCPFile.OpenReadStream())
-            {
-                using (var readerRaw = new StreamReader(stream))
-                {
-                    // Read the entire LPCP CSV content as a string.
-                    var csvString = await readerRaw.ReadToEndAsync(cancellationToken);
-
-                    // Normalize the CSV string to ensure no row is split into multiple lines
-                    // due to embedded line breaks within quoted fields.
-                    var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
-
-                    // Use StringReader to read the normalized CSV string line by line.
-                    using var normalizedReader = new StringReader(normalizedCsvString);
-
-                    /** Read header **/
-
-                    // Get header and determine column indexes for LEONI part number, FORS PN, SIGIP PN and Visual PN.
-                    var headerLine = await normalizedReader.ReadLineAsync(cancellationToken);
-
-                    if (string.IsNullOrEmpty(headerLine))
-                    {
-                        throw new CSVWorkerInvalidDataException("LPCP file header is invalid or empty.");
-                    }
-
-                    // Detect delimiter (it is usually ';' but we want to be sure, and handle cases where it can be ',').
-                    var delimiter = CsvHelper.DetectDelimiter(headerLine);
-
-                    // Split header line into columns using the detected delimiter. 
-                    var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
-                    if (headerRow == null || headerRow.Length == 0)
-                    {
-                        throw new CSVWorkerInvalidDataException("LPCP file header is invalid or empty.");
-                    }
-
-                    // Get required column indexes by header names.
-                    lpcpLeoniPartIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "LEONI Part Number", "PART/ITEM NO/", "PART/ITEM NO/.", "Item- /Mat.-No." });
-                    lpcpForsPnIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "FORS Part Number" });
-                    lpcpSigipPnIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "SIGIP Part Number" });
-                    lpcpVisualPnIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Visual Part Number" });
-                    lpcpWGKIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "WGK" });
-
-                    /** End Read header **/
-
-                    // Read data line by line asynchronously
-                    string? line;
-                    while ((line = await normalizedReader.ReadLineAsync(cancellationToken)) != null)
-                    {
-                        // Parse each line into columns using the detected delimiter and add to lpcpDoc list
-                        var row = CsvHelper.ParseLine(line, delimiter);
-                        if (row != null)
-                        {
-                            lpcpDoc.Add(row);
-                        }
-
-                    }
-                }
-            }
-
-            /** END Load LPCP **/
-
-            // Number of lines parsed from LPCP
-            _logger.LogInformation("UpdateDatabaseIMDS: Number of lines parsed from LPCP file: {LPCPLinesCount}", lpcpDoc.Count);
-
-            /** Load A2 **/
-            using (var stream = model.A2File.OpenReadStream())
-            {
-                using (var reader = new StreamReader(stream))
-                {
-                    // Read the entire LPCP CSV content as a string.
-                    var csvString = await reader.ReadToEndAsync(cancellationToken);
-
-                    // Normalize the CSV string to ensure no row is split into multiple lines
-                    // due to embedded line breaks within quoted fields.
-                    var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
-
-                    // Use StringReader to read the normalized CSV string line by line.
-                    using var normalizedReader = new StringReader(normalizedCsvString);
-
-                    /** Read header **/
-
-                    // Get header
-                    var headerLine = await normalizedReader.ReadLineAsync(cancellationToken);
-                    if (string.IsNullOrEmpty(headerLine))
-                    {
-                        throw new CSVWorkerInvalidDataException("A2 file header is invalid or empty.");
-                    }
-
-                    // Detect delimiter (it is usually ';' but we want to be sure, and handle cases where it can be ',').
-                    var delimiter = CsvHelper.DetectDelimiter(headerLine);
-
-                    // Split header line into columns using the detected delimiter.
-                    var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
-                    if (headerRow == null || headerRow.Length == 0)
-                    {
-                        throw new CSVWorkerInvalidDataException("A2 file header is invalid or empty.");
-                    }
-
-                    // Get required column indexes by header names.
-                    a2LPIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "LP", "PART/ITEM NO/", "PART/ITEM NO/.", "LEONI Part Number" });
-                    a2NodeIdIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Noeud", "Nœud", "Node ID" });
-
-                    // Read the file line by line asynchronously
-                    string? line;
-                    while ((line = await normalizedReader.ReadLineAsync(cancellationToken)) != null)
-                    {
-                        // Split line into columns using the detected delimiter
-                        var row = CsvHelper.ParseLine(line, delimiter);
-
-                        if (row != null)
-                        {
-                            var a2LPValue = CsvHelper.TryGetValue(row, a2LPIndex);
-
-                            /** Handle special cases where line is like: "PXXX;PXXX";NODEIDXXX **/
-
-                            // Sometimes the A2 file contains lines where the LP column
-                            // has multiple part numbers separated by ';' within the same cell,
-                            // like: "PXXX;PXXX";NODEIDXXX
-                            if (a2LPValue != null && a2LPValue.Contains(";"))
-                            {
-                                var multiparts = a2LPValue.Trim('\"').Trim().Split(';', StringSplitOptions.RemoveEmptyEntries);
-                                if (multiparts.Length > 0)
-                                {
-                                    foreach (var part in multiparts)
-                                    {
-                                        var trimmedPart = part.Trim();
-                                        if (string.IsNullOrWhiteSpace(trimmedPart))
-                                        {
-                                            continue;
-                                        }
-
-                                        // Keep row shape compatible with dynamic indexes used later.
-                                        var requiredLength = Math.Max(row.Length, Math.Max(a2LPIndex, a2NodeIdIndex) + 1);
-                                        var normalizedRow = new string[requiredLength];
-
-                                        // Optional: preserve other original columns.
-                                        Array.Copy(row, normalizedRow, row.Length);
-
-                                        normalizedRow[a2LPIndex] = trimmedPart;
-                                        normalizedRow[a2NodeIdIndex] = CsvHelper.TryGetValue(row, a2NodeIdIndex) ?? string.Empty;
-
-                                        a2Doc.Add(normalizedRow);
-                                    }
-                                }
-                            }
-                            /** END Handle special cases where line is like: "PXXX;PXXX";NODEIDXXX **/
-                            else
-                            {
-                                // Normal case, just add the row as is.
-                                a2Doc.Add(row);
-                            }
-                        }
-                    }
-                }
-            }
-
-            /** END Load A2 **/
-
-            /** End Load LPCP and A2 CSV files **/
-
-            // Number of lines parsed from A2
-            _logger.LogInformation("UpdateDatabaseIMDS: Number of lines parsed from A2 file: {A2LinesCount}", a2Doc.Count);
-
-            // Build fast lookup for A2 rows by LP
-            // This is used to find Node IDs for the parts in the LPCP file when building the output.
-            var a2ByLP = CsvHelper.BuildFastLookupDictionary(a2Doc, a2LPIndex);
-
-            // Database output: first row only for titles, then rebuilt rows from A2 + LPCP enrichment
-            var outputRows = new List<string[]>
-            {
-                (["Node ID", "x", "PART/ITEM NO/", "FORS PN", "SIGIP PN", "Visual PN", "WGK", "last Status Date", "Weight", "Weight Unit"])
-            };
-
-            // Iterate over LPCP rows and enrich with Node ID from A2, then add to output.
-            foreach (var row in lpcpDoc)
-            {
-                cancellationToken.ThrowIfCancellationRequested();
-
-                if (row == null || row.Length == 0)
-                {
-                    continue; // Skip empty rows
-                }
-
-                // Get part number and other relevant fields from LPCP row using the determined indexes.
-                var partNumber = CsvHelper.TryGetValue(row, lpcpLeoniPartIndex) ?? string.Empty;
-                var forsPn = CsvHelper.TryGetValue(row, lpcpForsPnIndex) ?? string.Empty;
-                var sigipPn = CsvHelper.TryGetValue(row, lpcpSigipPnIndex) ?? string.Empty;
-                var visualPn = CsvHelper.TryGetValue(row, lpcpVisualPnIndex) ?? string.Empty;
-                var wgk = CsvHelper.TryGetValue(row, lpcpWGKIndex) ?? string.Empty;
-
-                // if all are empty, skip the row
-                if (string.IsNullOrWhiteSpace(partNumber) && string.IsNullOrWhiteSpace(forsPn) && string.IsNullOrWhiteSpace(sigipPn) && string.IsNullOrWhiteSpace(visualPn) && string.IsNullOrWhiteSpace(wgk))
-                {
-                    continue;
-                }
-
-                /** Find Node ID **/
-
-                var nodeId = string.Empty; // Default value if not found
-
-                // We try to find the corresponding A2 row by multiple keys
-                // in this order: part number, FORS PN, SIGIP PN, Visual PN, WGK.
-
-                // Try to find A2 row by part number first
-                var rowWithNodeIdFromA2 = a2ByLP!.GetValueOrDefault(partNumber, null);
-
-                // If not found by part number, try by FORS PN
-                if (rowWithNodeIdFromA2 == null)
-                {
-                    rowWithNodeIdFromA2 = a2ByLP!.GetValueOrDefault(forsPn, null);
-                }
-                // If not found by FORS PN, try by SIGIP PN
-                if (rowWithNodeIdFromA2 == null)
-                {
-                    rowWithNodeIdFromA2 = a2ByLP!.GetValueOrDefault(sigipPn, null);
-                }
-                // If not found by SIGIP PN, try by Visual PN
-                if (rowWithNodeIdFromA2 == null)
-                {
-                    rowWithNodeIdFromA2 = a2ByLP!.GetValueOrDefault(visualPn, null);
-                }
-                // If not found by Visual PN, try by WGK
-                if (rowWithNodeIdFromA2 == null)
-                {
-                    rowWithNodeIdFromA2 = a2ByLP!.GetValueOrDefault(wgk, null);
-                }
-
-                // If found in A2, get Node ID from the row at the determined index.
-                if (rowWithNodeIdFromA2 != null && rowWithNodeIdFromA2.Count > a2NodeIdIndex)
-                {
-                    nodeId = rowWithNodeIdFromA2[a2NodeIdIndex];
-                }
-
-                /** End find Node ID **/
-
-                // Add row to output
-                outputRows.Add([nodeId, string.Empty, partNumber, forsPn, sigipPn, visualPn, wgk, string.Empty, string.Empty, string.Empty]);
-            }
-
-            // Convert output rows to CSV bytes
-            var outputCsvBytes = await CsvHelper.ConvertListToCsv(outputRows, ';', cancellationToken);
-
-            _logger.LogInformation("UpdateDatabaseIMDS finished. Output rows={RowsCount}", outputRows.Count - 1);
-
-            return outputCsvBytes;
         }
 
         /// <summary>
@@ -674,7 +389,7 @@ namespace CSVWorker.Services
                 throw new CSVWorkerArgumentException("Input missing - please provide at least one FORS BOM CSV file and a Database CSV file.");
             }
 
-            _logger.LogInformation("IMDSBomToPorscheIMDS started. Database file={DatabaseFileName}, Number of IMDS BOM files={BOMFilesCount}", model.DatabasePorscheCSV.FileName, model.CsvFiles.Count());
+            _logger.LogDebug("IMDSBomToPorscheIMDS started. Database file={DatabaseFileName}, Number of IMDS BOM files={BOMFilesCount}", model.DatabasePorscheCSV.FileName, model.CsvFiles.Count());
 
             // Porsche database indexes
             int databasePartNumberIndex;
@@ -789,7 +504,7 @@ namespace CSVWorker.Services
                             line = await reader.ReadLineAsync(cancellationToken);
                             if (line == null)
                             {
-                                _logger.LogWarning("File {FileName} is empty. Skipping this file.", file.FileName);
+                                //File is empty. Skipping this file.
                                 continue;
                             }
                             var delimiter = CsvHelper.DetectDelimiter(line, fallback: ',');
@@ -819,13 +534,13 @@ namespace CSVWorker.Services
                     /** Validate IMDS BOM structure **/
                     if (imdsCsvRows[0][0] != "MDS_BEGIN")
                     {
-                        _logger.LogWarning("File {FileName} does not have valid IMDS BOM structure: first cell is not 'MDS_BEGIN'. Skipping this file.", file.FileName);
+                        _logger.LogDebug("File {FileName} does not have valid IMDS BOM structure: first cell is not 'MDS_BEGIN'. Skipping this file.", file.FileName);
                         continue;
                     }
 
                     if (imdsCsvRows.Count < 5)
                     {
-                        _logger.LogWarning("File {FileName} does not have valid IMDS BOM structure: it has less than 5 rows. Skipping this file.", file.FileName);
+                        _logger.LogDebug("File {FileName} does not have valid IMDS BOM structure: it has less than 5 rows. Skipping this file.", file.FileName);
                         continue;
                     }
 
@@ -840,14 +555,11 @@ namespace CSVWorker.Services
                             break;
                         }
                     }
+
                     if (hasMissingNodes)
                     {
-                        _logger.LogWarning("File {FileName} has missing nodes (Node ID is #N/A in some rows). Skipping this file.", file.FileName);
+                        _logger.LogDebug("File {FileName} has missing nodes (Node ID is #N/A in some rows). Skipping this file.", file.FileName);
                         continue;
-                    }
-                    else
-                    {
-                        _logger.LogInformation("File {FileName} has valid IMDS BOM structure. Processing this file.", file.FileName);
                     }
 
                     /** END validate IMDS BOM structure **/

@@ -1,8 +1,8 @@
+using CSVWorker.Configuration;
+using CSVWorker.Models.ViewModels;
 using Microsoft.Extensions.Options;
 using System.Globalization;
 using System.Text.RegularExpressions;
-using CSVWorker.Configuration;
-using CSVWorker.Models.ViewModels;
 
 namespace CSVWorker.Services
 {
@@ -36,14 +36,14 @@ namespace CSVWorker.Services
                 return dates;
             }
 
-            // Log files are named: webreport-YYYYMMDD.log
-            var logFiles = Directory.GetFiles(_logDirectory, "webreport-*.log").Order();
+            // Log files are named: csvworker-YYYYMMDD.log
+            var logFiles = Directory.GetFiles(_logDirectory, $"{_config.LogsPrefix}-*.log").Order();
             int count = 0;
             foreach (var file in logFiles)
             {
                 var fileName = Path.GetFileNameWithoutExtension(file);
-                // Extract date from filename: webreport-20260218
-                var dateStr = fileName.Replace("webreport-", "");
+                // Extract date from filename: csvworker-20260218
+                var dateStr = fileName.Replace($"{_config.LogsPrefix}-", "");
 
                 if (DateTime.TryParseExact(dateStr, "yyyyMMdd", CultureInfo.InvariantCulture,
                     DateTimeStyles.None, out var date))
@@ -167,7 +167,7 @@ namespace CSVWorker.Services
 
         private string GetLogFilePath(DateTime date)
         {
-            var fileName = $"webreport-{date:yyyyMMdd}.log";
+            var fileName = $"{_config.LogsPrefix}-{date:yyyyMMdd}.log";
             return Path.Combine(_logDirectory, fileName);
         }
 

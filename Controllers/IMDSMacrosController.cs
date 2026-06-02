@@ -10,77 +10,32 @@ namespace CSVWorker.Controllers
     {
         private readonly IMDSMacrosService _service;
 
-        public IMDSMacrosController(IMDSMacrosService service)
+        private readonly ILogger<IMDSMacrosController> _logger;
+
+        public IMDSMacrosController(IMDSMacrosService service, ILogger<IMDSMacrosController> logger)
         {
             _service = service;
+            _logger = logger;
         }
 
         public IActionResult Index()
         {
             return NoContent();
         }
-        public IActionResult UpdateDatabaseIMDS()
-        {
-            return View(new UpdateDatabaseVM());
-        }
-
-        [HttpPost]
-        // The default request size limit in ASP.NET Core is 30 MB, which may not be sufficient for large CSV files.
-        // The following attributes increase the limits to 100 MB.
-        [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
-        [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
-        public async Task<IActionResult> UpdateDatabaseIMDS(UpdateDatabaseVM model, CancellationToken cancellationToken)
-        {
-            if (!ModelState.IsValid)
-            {
-                model.ErrorMessage = "Please fill all required fields.";
-                return View(model);
-            }
-            if (!CsvHelper.IsValidCSV(model.LPCPFile))
-            {
-                model.ErrorMessage = "Please select a valid LCPC CSV file.";
-                return View(model);
-            }
-            if (!CsvHelper.IsValidCSV(model.A2File))
-            {
-                model.ErrorMessage = "Please select a valid A2 CSV file.";
-                return View(model);
-            }
-
-            try
-            {
-                var outputBytes = await _service.UpdateDatabaseIMDS(model, cancellationToken);
-                // Database name should have date appended to it
-                // date should be in for yyyy-mm-dd_HHmmss
-                if (outputBytes == null)
-                {
-                    model.ErrorMessage = "An error occurred while processing the files. Please try again.";
-                    return View(model);
-
-                }
-
-                var dateString = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
-                var fileName = $"IMDS_Database_{dateString}.csv";
-                Response.Cookies.Append("fileDownloadToken", "success", new CookieOptions { Path = "/", HttpOnly = false, Secure = false });
-                return File(outputBytes, "text/csv", fileName);
-            }
-            catch (CSVWorkerException e)
-            {
-                model.ErrorMessage = e.Message;
-                return View(model);
-            }
-        }
 
         public IActionResult MultiForsBomToIMDS()
         {
+            _logger.LogInformation($"MultiForsBomToIMDS page accessed by user {User.Identity?.Name}.");
             return View(new MultiForsBomToIMDSBomVM());
         }
 
         [HttpPost]
         [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> MultiForsBomToIMDS(MultiForsBomToIMDSBomVM model, CancellationToken cancellationToken)
         {
+            _logger.LogInformation($"POST action sent by user {User.Identity?.Name} to MultiForsBomToIMDS.");
             if (!ModelState.IsValid)
             {
                 model.ErrorMessage = "Please fill all required fields.";
@@ -119,14 +74,18 @@ namespace CSVWorker.Controllers
 
         public IActionResult IMDSBomToPorscheIMDS()
         {
+            _logger.LogInformation($"IMDSBomToPorscheIMDS page accessed by user {User.Identity?.Name}.");
             return View(new IMDSBomToPorscheIMDS());
         }
 
         [HttpPost]
         [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
         {
+            _logger.LogInformation($"POST action sent by user {User.Identity?.Name} to IMDSBomToPorscheIMDS.");
+
             if (!ModelState.IsValid)
             {
                 model.ErrorMessage = "Please fill all required fields.";

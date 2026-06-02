@@ -1,9 +1,7 @@
-﻿using System.IO;
+﻿using CSVWorker.Services.LDAP;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.AspNetCore.Hosting;
-using CSVWorker.Services.LDAP;
 
-namespace WebReport.Controllers.Users
+namespace CSVWorker.Controllers
 {
     public class AccountController : Controller
     {
@@ -27,16 +25,14 @@ namespace WebReport.Controllers.Users
         {
             Response.Headers["Cache-Control"] = "public, max-age=86400, immutable"; // cache for 1 day
 
-            if (User.Identity != null && User.Identity.IsAuthenticated && !string.IsNullOrEmpty(User.Identity.Name))
-            {
-                var userName = User.Identity.Name!;
-                var photoBytes = _service.GetUserPhoto(userName);
+            var userName = User.Identity!.Name!;
+            var photoBytes = _service.GetUserPhoto(userName);
 
-                if (photoBytes != null && photoBytes.Length > 0)
-                {
-                    return File(photoBytes, "image/jpeg");
-                }
+            if (photoBytes != null && photoBytes.Length > 0)
+            {
+                return File(photoBytes, "image/jpeg");
             }
+
 
             return LocalRedirect(Url.Content(DefaultAvatarRelativePath)!);
         }

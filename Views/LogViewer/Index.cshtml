@@ -1,10 +1,10 @@
 @using CSVWorker.Configuration
-@inject Microsoft.Extensions.Options.IOptions<CSVWorkerConfig> WebReportConfigOptions
+@inject Microsoft.Extensions.Options.IOptions<CSVWorkerConfig> CsvWorkerConfigOptions
 @model CSVWorker.Models.ViewModels.LogViewerViewModel
 @{
     ViewData["Title"] = "Log Viewer";
     var statistics = ViewBag.Statistics as Dictionary<string, int> ?? new Dictionary<string, int>();
-    var config = WebReportConfigOptions.Value;
+    var config = CsvWorkerConfigOptions.Value;
 }
 
 @section PageStyles {
