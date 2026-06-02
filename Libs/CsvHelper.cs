@@ -1,3 +1,4 @@
+using CSVWorker.Exceptions;
 using System.Text;
 
 namespace CSVWorker.Libs
@@ -225,7 +226,7 @@ namespace CSVWorker.Libs
         /// <param name="possibleNames"></param>
         /// <param name="fallbackIndex"></param>
         /// <returns></returns>
-        /// <exception cref="Exception"></exception>
+        /// <exception cref="CSVWorkerMissingColumnException"></exception>
         public static int GetRequiredColumnIndex(string[] header, IEnumerable<string> possibleNames, int fallbackIndex = -1)
         {
             int index = -1;
@@ -237,12 +238,12 @@ namespace CSVWorker.Libs
 
             if (index == -1 && fallbackIndex == -1)
             {
-                throw new Exception($"Required column not found. Expected one of these possible names: {string.Join(", ", possibleNames.Select(n => $"\"{n}\""))}");
+                throw new CSVWorkerMissingColumnException($"Required column not found. Expected one of these possible names: {string.Join(", ", possibleNames.Select(n => $"\"{n}\""))}");
             }
 
             if (fallbackIndex != -1 && (fallbackIndex < 0 || fallbackIndex >= header.Length))
             {
-                throw new Exception($"The header have only {header.Length} columns, but \"{possibleNames.First()}\" column index must be at {fallbackIndex + 1}");
+                throw new CSVWorkerMissingColumnException($"The header have only {header.Length} columns, but \"{possibleNames.First()}\" column index must be at {fallbackIndex + 1}");
             }
 
             return fallbackIndex;

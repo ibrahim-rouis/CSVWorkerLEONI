@@ -1,5 +1,21 @@
 @* ! Brand demo (display only for navbar-full and hide on below xl) *@
 
+@using System.Security.Claims
+
+@{
+    // Get all role claims for the current user
+    var roles = User.Claims
+        .Where(c => c.Type == ClaimTypes.Role)
+        .Select(c => c.Value)
+        .ToList();
+
+    // Show only the main role (first role), or "No roles" if none
+    var mainRole = roles.FirstOrDefault() ?? "No roles";
+
+    // Show all roles in tooltip, or "No roles" if none
+    var tooltipString = roles.Any() ? string.Join(", ", roles) : "No roles";
+}
+
 @if (ViewData["navbarFull"] != null)
 {
     <div class="navbar-brand app-brand demo d-none d-xl-flex py-0 me-4">
@@ -37,8 +53,7 @@
     <div class="navbar-nav align-items-center me-auto">
         <div class="nav-item d-flex align-items-center">
             <span class="w-px-22 h-px-22"><i class="icon-base bx bx-search icon-md"></i></span>
-            <input type="text" class="form-control border-0 shadow-none ps-1 ps-sm-2 d-md-block d-none"
-                   placeholder="Search..." aria-label="Search..." />
+            <input type="text" class="form-control border-0 shadow-none ps-1 ps-sm-2 d-md-block d-none" placeholder="Search..." aria-label="Search..." />
         </div>
     </div>
     <!-- /Search -->
@@ -50,8 +65,7 @@
         <li class="nav-item navbar-dropdown dropdown-user dropdown">
             <a class="nav-link dropdown-toggle hide-arrow p-0" href="javascript:void(0);" data-bs-toggle="dropdown">
                 <div class="avatar avatar-online">
-                    <img src="~/img/avatars/default.svg" alt="User Avatar"
-                         class="w-px-40 object-fit-cover rounded-circle" />
+                    <img src="@Url.Action("ProfilePicture", "Account")" alt="Windows User Photo" class="w-px-40 object-fit-cover rounded-circle" />
                 </div>
             </a>
             <ul class="dropdown-menu dropdown-menu-end">
@@ -60,13 +74,12 @@
                         <div class="d-flex">
                             <div class="flex-shrink-0 me-3">
                                 <div class="avatar avatar-online">
-                                    <img src="~/img/avatars/default.svg" alt="User Avatar"
-                                         class="w-px-40 object-fit-cover rounded-circle" />
+                                    <img src="@Url.Action("ProfilePicture", "Account")" alt="Windows User Photo" class="w-px-40 object-fit-cover rounded-circle" />
                                 </div>
                             </div>
                             <div class="flex-grow-1">
-                                <h6 class="mb-0">User</h6>
-                                <small class="text-body-secondary" data-bs-toggle="tooltip">No Auth</small>
+                                <h6 class="mb-0">@User.Identity?.Name</h6>
+                                <small class="text-body-secondary" data-bs-toggle="tooltip" title="@tooltipString">@mainRole</small>
                             </div>
                         </div>
                     </a>
@@ -75,16 +88,14 @@
                     <div class="dropdown-divider my-1"></div>
                 </li>
                 <li>
-                    <a class="dropdown-item" href="javascript:void(0);" disabled> <i
-                        class="icon-base bx bx-user icon-md me-3"></i><span>My Profile</span> </a>
-                    </li>
-                    <li>
-                        <a class="dropdown-item" href="javascript:void(0);" disabled> <i
-                            class="icon-base bx bx-cog icon-md me-3"></i><span>Settings</span> </a>
-                        </li>
-                    </ul>
+                    <a class="dropdown-item" asp-controller="Pages" asp-action="ProfileUser"> <i class="icon-base bx bx-user icon-md me-3"></i><span>My Profile</span> </a>
                 </li>
-                <!--/ User -->
-
+                <li>
+                    <a class="dropdown-item" asp-controller="Pages" asp-action="AccountSettings"> <i class="icon-base bx bx-cog icon-md me-3"></i><span>Settings</span> </a>
+                </li>
             </ul>
-        </div>
+        </li>
+        <!--/ User -->
+
+    </ul>
+</div>

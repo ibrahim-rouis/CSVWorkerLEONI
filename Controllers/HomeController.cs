@@ -1,4 +1,4 @@
-using CSVWorker.ViewModels;
+using CSVWorker.Models.ViewModels;
 using Microsoft.AspNetCore.Mvc;
 using System.Diagnostics;
 

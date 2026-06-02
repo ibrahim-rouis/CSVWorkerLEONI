@@ -1,5 +1,6 @@
-﻿using CSVWorker.Libs;
-using CSVWorker.ViewModels.IMDSMacros;
+﻿using CSVWorker.Exceptions;
+using CSVWorker.Libs;
+using CSVWorker.Models.ViewModels.IMDSMacros;
 using System.IO.Compression;
 
 namespace CSVWorker.Services
@@ -19,15 +20,15 @@ namespace CSVWorker.Services
         /// <param name="model">The view model containing the FORS BOM CSV files and the Database CSV file.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <returns>A byte array representing the transformed IMDS CSV files.</returns>
-        /// <exception cref="ArgumentException">Thrown when input files are missing or invalid.</exception>
-        /// <exception cref="InvalidDataException">Thrown when the Database CSV file header is invalid or empty.</exception>
+        /// <exception cref="CSVWorkerArgumentException">Thrown when input files are missing or invalid.</exception>
+        /// <exception cref="CSVWorkerInvalidDataException">Thrown when the Database CSV file header is invalid or empty.</exception>
         public async Task<byte[]> MultiForsBomToIMDS(MultiForsBomToIMDSBomVM model, CancellationToken cancellationToken)
         {
             _logger.LogInformation("MultiForsBomToIMDS started. CSV files count={CsvFilesCount}, Database CSV provided={DatabaseCsvName}", model.CsvFiles?.Count() ?? 0, model.DatabaseCSV?.FileName);
 
             if (model.CsvFiles == null || !model.CsvFiles.Any() || model.DatabaseCSV == null)
             {
-                throw new ArgumentException("Input missing - please provide at least one FORS BOM CSV file and a Database CSV file.");
+                throw new CSVWorkerArgumentException("Input missing - please provide at least one FORS BOM CSV file and a Database CSV file.");
             }
 
             // Database headers indexes
@@ -81,7 +82,7 @@ namespace CSVWorker.Services
                     var header = await reader.ReadLineAsync(cancellationToken);
                     if (string.IsNullOrEmpty(header))
                     {
-                        throw new InvalidDataException("Database CSV file header is invalid or empty.");
+                        throw new CSVWorkerInvalidDataException("Database CSV file header is invalid or empty.");
                     }
 
                     // detect delimiter (it is always ';' for leoni but sometimes it can be ','
@@ -91,7 +92,7 @@ namespace CSVWorker.Services
                     var headerRow = CsvHelper.ParseLine(header, delimiter);
                     if (headerRow == null || headerRow.Length == 0)
                     {
-                        throw new InvalidDataException("Database CSV file header is invalid or empty.");
+                        throw new CSVWorkerInvalidDataException("Database CSV file header is invalid or empty.");
                     }
 
                     // Get required columns indexes by header names,
@@ -140,7 +141,7 @@ namespace CSVWorker.Services
                 {
                     if (!CsvHelper.IsValidCSV(file))
                     {
-                        throw new ArgumentException($"File '{file.FileName}' is not a valid CSV file.");
+                        throw new CSVWorkerArgumentException($"File '{file.FileName}' is not a valid CSV file.");
                     }
 
                     // Product numbers
@@ -375,13 +376,22 @@ namespace CSVWorker.Services
             return zipStream.ToArray();
         }
 
+        /// <summary>
+        /// Updates the database by processing and merging data from LPCP and A2 CSV files, enriching LPCP records with
+        /// Node IDs from A2, and returns the result as a CSV byte array.
+        /// </summary>
+        /// <param name="model">The view model containing the LPCP and A2 files to process.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <returns>A byte array containing the merged and enriched CSV data.</returns>
+        /// <exception cref="CSVWorkerArgumentException">Thrown when either the LPCP file or A2 file is null.</exception>
+        /// <exception cref="CSVWorkerInvalidDataException">Thrown when the header of the LPCP or A2 file is invalid or empty.</exception>
         public async Task<byte[]> UpdateDatabaseIMDS(UpdateDatabaseVM model, CancellationToken cancellationToken)
         {
             _logger.LogInformation("UpdateDatabase started. LPCP file={LPCPFileName}, A2 file={A2FileName}", model.LPCPFile?.FileName, model.A2File?.FileName);
 
             if (model.LPCPFile == null || model.A2File == null)
             {
-                throw new NullReferenceException("Input must not be null. Usually it must be validated in controller before sending to service for processing.");
+                throw new CSVWorkerArgumentException("Input must not be null. Usually it must be validated in controller before sending to service for processing.");
             }
 
             var lpcpDoc = new List<string[]>();
@@ -424,7 +434,7 @@ namespace CSVWorker.Services
 
                     if (string.IsNullOrEmpty(headerLine))
                     {
-                        throw new InvalidDataException("LPCP file header is invalid or empty.");
+                        throw new CSVWorkerInvalidDataException("LPCP file header is invalid or empty.");
                     }
 
                     // Detect delimiter (it is usually ';' but we want to be sure, and handle cases where it can be ',').
@@ -434,7 +444,7 @@ namespace CSVWorker.Services
                     var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
                     if (headerRow == null || headerRow.Length == 0)
                     {
-                        throw new InvalidDataException("LPCP file header is invalid or empty.");
+                        throw new CSVWorkerInvalidDataException("LPCP file header is invalid or empty.");
                     }
 
                     // Get required column indexes by header names.
@@ -487,7 +497,7 @@ namespace CSVWorker.Services
                     var headerLine = await normalizedReader.ReadLineAsync(cancellationToken);
                     if (string.IsNullOrEmpty(headerLine))
                     {
-                        throw new InvalidDataException("A2 file header is invalid or empty.");
+                        throw new CSVWorkerInvalidDataException("A2 file header is invalid or empty.");
                     }
 
                     // Detect delimiter (it is usually ';' but we want to be sure, and handle cases where it can be ',').
@@ -497,7 +507,7 @@ namespace CSVWorker.Services
                     var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
                     if (headerRow == null || headerRow.Length == 0)
                     {
-                        throw new InvalidDataException("A2 file header is invalid or empty.");
+                        throw new CSVWorkerInvalidDataException("A2 file header is invalid or empty.");
                     }
 
                     // Get required column indexes by header names.
@@ -649,12 +659,19 @@ namespace CSVWorker.Services
             return outputCsvBytes;
         }
 
-        // This method is intended to transform the IMDS BOM CSVs to Porsche IMDS CSVs, using the database for lookups as needed.
+        /// <summary>
+        /// Transforms IMDS BOM data into Porsche IMDS format and generates a ZIP file containing the output CSV files.
+        /// </summary>
+        /// <param name="model">The model containing the input CSV files and the Porsche database CSV file.</param>
+        /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+        /// <returns>A byte array representing the ZIP file containing the transformed IMDS data and any missing articles.</returns>
+        /// <exception cref="CSVWorkerArgumentException">Thrown when the input is missing required CSV files.</exception>
+        /// <exception cref="CSVWorkerInvalidDataException">Thrown when the database file header is invalid or empty.</exception>
         public async Task<byte[]> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
         {
             if (model.CsvFiles == null || !model.CsvFiles.Any() || model.DatabasePorscheCSV == null)
             {
-                throw new ArgumentException("Input missing - please provide at least one FORS BOM CSV file and a Database CSV file.");
+                throw new CSVWorkerArgumentException("Input missing - please provide at least one FORS BOM CSV file and a Database CSV file.");
             }
 
             _logger.LogInformation("IMDSBomToPorscheIMDS started. Database file={DatabaseFileName}, Number of IMDS BOM files={BOMFilesCount}", model.DatabasePorscheCSV.FileName, model.CsvFiles.Count());
@@ -698,7 +715,7 @@ namespace CSVWorker.Services
                     var headerLine = await reader.ReadLineAsync(cancellationToken);
                     if (string.IsNullOrEmpty(headerLine))
                     {
-                        throw new InvalidDataException("Database file header is invalid or empty.");
+                        throw new CSVWorkerInvalidDataException("Database file header is invalid or empty.");
                     }
 
                     // Detect delimiter (it is usually ';' but we want to be sure, and handle cases where it can be ',').
@@ -708,7 +725,7 @@ namespace CSVWorker.Services
                     var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
                     if (headerRow == null || headerRow.Length == 0)
                     {
-                        throw new InvalidDataException("Database CSV file header is invalid or empty.");
+                        throw new CSVWorkerInvalidDataException("Database CSV file header is invalid or empty.");
                     }
 
 
@@ -757,7 +774,7 @@ namespace CSVWorker.Services
                 {
                     if (!CsvHelper.IsValidCSV(file))
                     {
-                        throw new ArgumentException($"File '{file.FileName}' is not a valid CSV file.");
+                        throw new CSVWorkerArgumentException($"File '{file.FileName}' is not a valid CSV file.");
                     }
 
                     /** Parse IMDS BOM CSV **/

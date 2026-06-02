@@ -28,12 +28,32 @@
 
     @* ! menu-items *@
     <ul class="menu-inner py-1">
-        <!-- Part 1 -->
+
+        @if (User.IsInRole("Admin"))
+        {
+            <!-- Misc -->
+            <li class="menu-header small text-uppercase"><span class="menu-header-text">Admin</span></li>
+            <li class="menu-item">
+                <a asp-controller="LogViewer"
+                   asp-route-viewMode="month"
+                   asp-route-levelFilter="ERR"
+                   asp-route-month="@DateTime.Now.Month"
+                   asp-route-year="@DateTime.Now.Year"
+                   asp-action="Index" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-file"></i>
+                    <div class="text-truncate">Logs Viewer</div>
+                </a>
+            </li>
+            <!--/ Misc -->
+        }
+
+        <!-- Macros -->
         <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Macros</span>
         </li>
-        <!-- Part 1 sections -->
-        <!-- Section 1 -->
+        <!-- Macros sections -->
+
+        <!-- IMDS Macros section -->
         <li class='menu-item@(currentPage.StartsWith("/IMDSMacros") ? " active open" : "")'>
             <a href="javascript:void(0);" class="menu-link menu-toggle">
                 <i class="menu-icon icon-base bx bx-folder"></i>
@@ -59,7 +79,6 @@
                 </li>
             </ul>
         </li>
-
        
         
     </ul>

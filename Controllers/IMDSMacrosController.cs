@@ -1,6 +1,7 @@
-﻿using CSVWorker.Libs;
+﻿using CSVWorker.Exceptions;
+using CSVWorker.Libs;
+using CSVWorker.Models.ViewModels.IMDSMacros;
 using CSVWorker.Services;
-using CSVWorker.ViewModels.IMDSMacros;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CSVWorker.Controllers
@@ -63,7 +64,7 @@ namespace CSVWorker.Controllers
                 Response.Cookies.Append("fileDownloadToken", "success", new CookieOptions { Path = "/", HttpOnly = false, Secure = false });
                 return File(outputBytes, "text/csv", fileName);
             }
-            catch (Exception e)
+            catch (CSVWorkerException e)
             {
                 model.ErrorMessage = e.Message;
                 return View(model);
@@ -109,7 +110,7 @@ namespace CSVWorker.Controllers
                 Response.Cookies.Append("fileDownloadToken", "success", new CookieOptions { Path = "/", HttpOnly = false, Secure = false });
                 return File(outputBytes, "application/zip", fileName);
             }
-            catch (Exception e)
+            catch (CSVWorkerException e)
             {
                 model.ErrorMessage = e.Message;
                 return View(model);
@@ -155,7 +156,7 @@ namespace CSVWorker.Controllers
                 Response.Cookies.Append("fileDownloadToken", "success", new CookieOptions { Path = "/", HttpOnly = false, Secure = false });
                 return File(outputBytes, "application/zip", fileName);
             }
-            catch (Exception e)
+            catch (CSVWorkerException e)
             {
                 model.ErrorMessage = e.Message;
                 return View(model);
