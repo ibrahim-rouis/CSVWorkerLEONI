@@ -30,8 +30,6 @@ namespace CSVWorker.Controllers
         }
 
         [HttpPost]
-        [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
-        [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> MultiForsBomToIMDS(MultiForsBomToIMDSBomVM model, CancellationToken cancellationToken)
         {
@@ -79,8 +77,6 @@ namespace CSVWorker.Controllers
         }
 
         [HttpPost]
-        [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
-        [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
         {

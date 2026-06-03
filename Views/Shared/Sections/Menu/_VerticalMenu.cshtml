@@ -33,7 +33,8 @@
         {
             <!-- Misc -->
             <li class="menu-header small text-uppercase"><span class="menu-header-text">Admin</span></li>
-            <li class="menu-item">
+
+            <li class='menu-item@(currentPage.StartsWith("/LogViewer") ? " active" : "")'>
                 <a asp-controller="LogViewer"
                    asp-route-viewMode="month"
                    asp-route-levelFilter="ERR"
@@ -49,9 +50,9 @@
 
         <!-- Databases -->
         <li class="menu-header small text-uppercase"><span class="menu-header-text">Databases</span></li>
-        <li class="menu-item">
-            <a asp-controller="IMDSDatabase"
-               asp-action="Index" class="menu-link">
+
+        <li class='menu-item@(currentPage.StartsWith("/IMDSDatabase") ? " active" : "")'>
+            <a asp-controller="IMDSDatabase" asp-action="Index" class="menu-link">
                 <i class="menu-icon icon-base bx bx-data"></i>
                 <div class="text-truncate">IMDS Database</div>
             </a>
@@ -61,35 +62,24 @@
         <!-- Macros -->
         <li class="menu-header small text-uppercase">
             <span class="menu-header-text">Macros</span>
-        </li>
-        <!-- Macros sections -->
 
-        <!-- IMDS Macros section -->
-        <li class='menu-item@(currentPage.StartsWith("/IMDSMacros") ? " active open" : "")'>
-            <a href="javascript:void(0);" class="menu-link menu-toggle">
-                <i class="menu-icon icon-base bx bx-folder"></i>
-                <div class="text-truncate">IMDS Macros</div>
+
+        <li class='menu-item@(currentPage == "/IMDSMacros/MultiForsBomToIMDS" ? " active" : "")'>
+            <a asp-controller="IMDSMacros" asp-action="MultiForsBomToIMDS" class="menu-link">
+                <i class="menu-icon icon-base bx bx-wrench"></i>
+                <div class="text-truncate">FORS to IMDS BOMs</div>
             </a>
-
-            <ul class="menu-sub ms-2">
-
-                <li class='menu-item@(currentPage == "/IMDSMacros/UpdateDatabaseIMDS" ? " active" : "")'>
-                    <a asp-controller="IMDSMacros" asp-action="UpdateDatabaseIMDS" class="menu-link border shadow-sm">
-                        Update IMDS Database
-                    </a>
-                </li>
-                <li class='menu-item@(currentPage == "/IMDSMacros/MultiForsBomToIMDS" ? " active" : "")'>
-                    <a asp-controller="IMDSMacros" asp-action="MultiForsBomToIMDS" class="menu-link border shadow-sm">
-                        FORS BOM to IMDS BOM
-                    </a>
-                </li>
-                <li class='menu-item@(currentPage == "/IMDSMacros/IMDSBomToPorscheIMDS" ? " active" : "")'>
-                    <a asp-controller="IMDSMacros" asp-action="IMDSBomToPorscheIMDS" class="menu-link border shadow-sm">
-                        IMDS BOM to Porsche IMDS BOM
-                    </a>
-                </li>
-            </ul>
         </li>
+        <li class='menu-item@(currentPage == "/IMDSMacros/IMDSBomToPorscheIMDS" ? " active" : "")'>
+            <a asp-controller="IMDSMacros" asp-action="IMDSBomToPorscheIMDS" class="menu-link">
+                <i class="menu-icon icon-base bx bx-wrench"></i>
+                <div class="text-truncate">IMDS to Porsche BOMs</div>
+            </a>
+        </li>
+
+        <!--/ Macros -->
+   
+     
        
         
     </ul>

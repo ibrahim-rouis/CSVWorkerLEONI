@@ -30,7 +30,7 @@ namespace CSVWorker.Services
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <exception cref="CSVWorkerArgumentException">Thrown when either the LPCP file or A2 file is null.</exception>
         /// <exception cref="CSVWorkerInvalidDataException">Thrown when the header of the LPCP or A2 file is invalid or empty.</exception>
-        public async Task UpdateDatabaseIMDS(UpdateDatabaseVM model, string? username)
+        public async Task UpdateDatabaseIMDS(UpdateDatabaseVM model, string? username, CancellationToken cancellationToken)
         {
             _logger.LogDebug("UpdateDatabase started. LPCP file={LPCPFileName}, A2 file={A2FileName}", model.LPCPFile?.FileName, model.A2File?.FileName);
 
@@ -105,17 +105,18 @@ namespace CSVWorker.Services
                     string? line;
                     while ((line = await normalizedReader.ReadLineAsync()) != null)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
                         // Parse each line into columns using the detected delimiter and add to lpcpDoc list
                         var row = CsvHelper.ParseLine(line, delimiter);
                         if (row != null)
                         {
                             lpcpRecords.Add(new LPCPRecord
                             {
-                                PartNumber = row[lpcpLeoniPartIndex],
-                                ForsPN = row[lpcpForsPnIndex],
-                                SIGIPPN = row[lpcpSigipPnIndex],
-                                VisualPN = row[lpcpVisualPnIndex],
-                                WGK = row[lpcpWGKIndex]
+                                PartNumber = row[lpcpLeoniPartIndex].Trim(),
+                                ForsPN = row[lpcpForsPnIndex].Trim(),
+                                SIGIPPN = row[lpcpSigipPnIndex].Trim(),
+                                VisualPN = row[lpcpVisualPnIndex].Trim(),
+                                WGK = row[lpcpWGKIndex].Trim()
                             });
                         }
 
@@ -167,6 +168,8 @@ namespace CSVWorker.Services
                     string? line;
                     while ((line = await normalizedReader.ReadLineAsync()) != null)
                     {
+                        cancellationToken.ThrowIfCancellationRequested();
+
                         // Split line into columns using the detected delimiter
                         var row = CsvHelper.ParseLine(line, delimiter);
 
@@ -204,8 +207,8 @@ namespace CSVWorker.Services
 
                                         a2Records.Add(new A2Record
                                         {
-                                            PartNumber = normalizedRow[a2PartNumberIndex],
-                                            NodeID = normalizedRow[a2NodeIdIndex]
+                                            PartNumber = normalizedRow[a2PartNumberIndex].Trim(),
+                                            NodeID = normalizedRow[a2NodeIdIndex].Trim()
                                         });
                                     }
                                 }
@@ -216,8 +219,8 @@ namespace CSVWorker.Services
                                 // Normal case, just add the row as is.
                                 a2Records.Add(new A2Record
                                 {
-                                    PartNumber = row[a2PartNumberIndex],
-                                    NodeID = row[a2NodeIdIndex]
+                                    PartNumber = row[a2PartNumberIndex].Trim(),
+                                    NodeID = row[a2NodeIdIndex].Trim()
                                 });
                             }
                         }
@@ -229,28 +232,46 @@ namespace CSVWorker.Services
 
             /** End Load LPCP and A2 CSV files **/
 
+            // Cleanup duplicates from LPCP records based on all part number columns
+            lpcpRecords = lpcpRecords
+                .GroupBy(r => new
+                {
+                    PartNumber = r.PartNumber?.Trim(),
+                    ForsPN = r.ForsPN?.Trim(),
+                    SIGIPPN = r.SIGIPPN?.Trim(),
+                    VisualPN = r.VisualPN?.Trim(),
+                    WGK = r.WGK?.Trim()
+                })
+                .Select(g => g.First())
+                .ToList();
+
+            _logger.LogDebug($"There are {lpcpRecords.Count} unique rows in LPCP.");
+
             // Optimize A2 Lookup: Build a dictionary for O(1) lookups
             var a2Lookup = a2Records
                 .Where(a => !string.IsNullOrEmpty(a.PartNumber))
                 .GroupBy(a => a.PartNumber!)
                 .ToDictionary(g => g.Key, g => g.First().NodeID);
 
-            // Fetch existing records into memory to avoid N+1 queries.
-            var allExistingRecords = await _context.IMDSDatabase.ToListAsync();
-
-            // Create a lookup for existing records to find them
-            string BuildKey(string? pn, string? fors, string? sigip, string? visual, string? wgk)
-                => $"{pn}|{fors}|{sigip}|{visual}|{wgk}";
-
-            var existingRecordsLookup = allExistingRecords
-                .GroupBy(r => BuildKey(r.PartNumber, r.ForsPN, r.SIGIPPN, r.VisualPN, r.WGK))
-                .ToDictionary(g => g.Key, g => g.First());
-
             var recordsToAdd = new List<IMDSDatabaseRecord>();
             var recordsToUpdate = new List<IMDSDatabaseRecord>();
 
+            // Load whole IMDS database into memory for faster lookups during processing.
+            var _existingIMDSRecords = await _context.IMDSDatabase.ToListAsync(cancellationToken);
+
+            // helper
+            string Normalize(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : s.Trim();
+            string BuildKey(string? pn, string? fors, string? sigip, string? visual, string? wgk)
+                => $"{Normalize(pn)}|{Normalize(fors)}|{Normalize(sigip)}|{Normalize(visual)}|{Normalize(wgk)}";
+
+            var existingLookup = _existingIMDSRecords.ToDictionary(
+                e => BuildKey(e.PartNumber, e.ForsPN, e.SIGIPPN, e.VisualPN, e.WGK),
+                e => e);
+
             foreach (var lpcpRow in lpcpRecords)
             {
+                cancellationToken.ThrowIfCancellationRequested();
+
                 // Skip if all properties in record are null or empty
                 if (string.IsNullOrEmpty(lpcpRow.PartNumber)
                     && string.IsNullOrEmpty(lpcpRow.ForsPN)
@@ -269,29 +290,23 @@ namespace CSVWorker.Services
                 else if (lpcpRow.VisualPN != null && a2Lookup.TryGetValue(lpcpRow.VisualPN, out var val4)) nodeID = val4;
                 else if (lpcpRow.WGK != null && a2Lookup.TryGetValue(lpcpRow.WGK, out var val5)) nodeID = val5;
 
-                // Fast Existing Record Lookup
                 var key = BuildKey(lpcpRow.PartNumber, lpcpRow.ForsPN, lpcpRow.SIGIPPN, lpcpRow.VisualPN, lpcpRow.WGK);
 
-                if (existingRecordsLookup.TryGetValue(key, out var existingRecord))
+                if (existingLookup.TryGetValue(key, out var exisitingRecord))
                 {
-                    if (existingRecord.Id != 0 && existingRecord.NodeID != nodeID)
+                    // Only update if nodeID changed
+                    if (exisitingRecord.NodeID != nodeID)
                     {
-                        // Update NodeID
-                        existingRecord.NodeID = nodeID;
-                        existingRecord.LastUpdatedBy = username;
-                        existingRecord.LastUpdatedAt = DateTime.UtcNow;
+                        exisitingRecord.NodeID = nodeID;
+                        exisitingRecord.LastUpdatedBy = username;
+                        exisitingRecord.LastUpdatedAt = DateTime.UtcNow;
 
-                        // Prevent updating the same record multiple times
-                        // The first retrieved NodeID is the correct one.
-                        if (!recordsToUpdate.Contains(existingRecord))
-                        {
-                            recordsToUpdate.Add(existingRecord);
-                        }
+                        recordsToUpdate.Add(exisitingRecord);
                     }
                 }
                 else
                 {
-                    // Track additions
+                    // Add new record
                     var newRecord = new IMDSDatabaseRecord
                     {
                         PartNumber = lpcpRow.PartNumber,
@@ -307,10 +322,6 @@ namespace CSVWorker.Services
                     };
 
                     recordsToAdd.Add(newRecord);
-
-                    // Add to lookup in case the LPCP file contains duplicates of this new record
-                    // so we don't try to add it twice.
-                    existingRecordsLookup[key] = newRecord;
                 }
             }
 
@@ -338,7 +349,13 @@ namespace CSVWorker.Services
             _logger.LogDebug("Update IMDS Database finished.");
         }
 
-        public async Task<IMDSDatabaseRecord?> Find(string? partNumber, string? forstPN, string? sigipPN, string? visualPN, string? wgk)
+        // Get by ID
+        public async Task<IMDSDatabaseRecord?> GetByIdAsync(int id)
+        {
+            return await _context.IMDSDatabase.FirstOrDefaultAsync(p => p.Id == id);
+        }
+
+        public async Task<IMDSDatabaseRecord?> GetByPartNumbersAsync(string? partNumber, string? forstPN, string? sigipPN, string? visualPN, string? wgk)
         {
             var record = await _context.IMDSDatabase.FirstOrDefaultAsync(r =>
                 r.PartNumber == partNumber
@@ -353,14 +370,34 @@ namespace CSVWorker.Services
             return record;
         }
 
-        public async Task<IMDSDatabaseRecord> SaveAsync(IMDSDatabaseRecord record)
+        public async Task<IMDSDatabaseRecord> SaveAsync(IMDSDatabaseRecord record, string? username)
         {
+            // Check if already exists
+            if (await Exists(record))
+            {
+                throw new CSVWorkerArgumentException("Record with the same part numbers already exists.");
+            }
+
+            record.CreatedAt = DateTime.UtcNow;
+            record.createdBy = username;
+            record.LastUpdatedAt = DateTime.UtcNow;
+            record.LastUpdatedBy = username;
+
             var entry = await _context.IMDSDatabase.AddAsync(record);
             await _context.SaveChangesAsync();
             return entry.Entity;
         }
 
-        public async Task<IMDSDatabaseRecord> UpdateAsync(IMDSDatabaseRecord record)
+        public async Task<bool> Exists(IMDSDatabaseRecord record)
+        {
+            return await _context.IMDSDatabase.AnyAsync(p => (p.PartNumber == record.PartNumber
+                && p.ForsPN == record.ForsPN
+                && p.SIGIPPN == record.SIGIPPN
+                && p.VisualPN == record.VisualPN
+                && p.WGK == record.WGK));
+        }
+
+        public async Task<IMDSDatabaseRecord> UpdateAsync(IMDSDatabaseRecord record, string? username)
         {
             var existingRecord = await _context.IMDSDatabase.FindAsync(record.Id);
 
@@ -377,7 +414,7 @@ namespace CSVWorker.Services
             existingRecord.WGK = record.WGK;
             existingRecord.NodeID = record.NodeID;
             existingRecord.LastUpdatedAt = DateTime.UtcNow;
-            existingRecord.LastUpdatedBy = record.LastUpdatedBy;
+            existingRecord.LastUpdatedBy = username;
 
             _context.IMDSDatabase.Update(existingRecord);
             await _context.SaveChangesAsync();

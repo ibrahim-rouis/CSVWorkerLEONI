@@ -1,11 +1,14 @@
 ﻿using CSVWorker.Exceptions;
 using CSVWorker.Libs;
+using CSVWorker.Models.Entities;
 using CSVWorker.Models.ViewModels.IMDSMacros;
 using CSVWorker.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CSVWorker.Controllers
 {
+    [Authorize(Roles = "Admin")]
     public class IMDSDatabaseController : Controller
     {
         private readonly ILogger<IMDSDatabaseController> _logger;
@@ -28,6 +31,70 @@ namespace CSVWorker.Controllers
             return View(model);
         }
 
+        public IActionResult Create()
+        {
+            return View();
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Create([Bind("PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
+        {
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            try
+            {
+                await _service.SaveAsync(model, User.Identity?.Name);
+                return RedirectToAction(nameof(Index));
+            }
+            catch (CSVWorkerException ex)
+            {
+                _logger.LogError(ex, "Error creating IMDSDatabaseRecord");
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return View(model);
+            }
+        }
+
+        public async Task<IActionResult> Edit(int id)
+        {
+            var record = await _service.GetByIdAsync(id);
+            if (record == null)
+            {
+                return NotFound();
+            }
+            return View(record);
+        }
+
+        [HttpPost]
+        [ValidateAntiForgeryToken]
+        public async Task<IActionResult> Edit(int id, [Bind("Id,PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
+        {
+            if (id != model.Id)
+            {
+                return BadRequest();
+            }
+
+            if (!ModelState.IsValid)
+            {
+                return View(model);
+            }
+
+            try
+            {
+                await _service.UpdateAsync(model, User.Identity?.Name);
+                return RedirectToAction(nameof(Index));
+            }
+            catch (CSVWorkerException ex)
+            {
+                _logger.LogError(ex, "Error updating IMDSDatabaseRecord");
+                ModelState.AddModelError(string.Empty, ex.Message);
+                return View(model);
+            }
+        }
+
         public IActionResult UpdateDatabase()
         {
             return View(new UpdateDatabaseVM());
@@ -38,6 +105,7 @@ namespace CSVWorker.Controllers
         // The following attributes increase the limits to 100 MB.
         [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
+        [ValidateAntiForgeryToken]
         public async Task<IActionResult> UpdateDatabase(UpdateDatabaseVM model, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)
@@ -58,7 +126,7 @@ namespace CSVWorker.Controllers
 
             try
             {
-                await _service.UpdateDatabaseIMDS(model, User.Identity?.Name);
+                await _service.UpdateDatabaseIMDS(model, User.Identity?.Name, cancellationToken);
                 model.Success = true;
                 model.ErrorMessage = null;
                 return View(model);

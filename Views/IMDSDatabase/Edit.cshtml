@@ -1,0 +1,69 @@
+﻿@using CSVWorker.Models.Entities
+@model IMDSDatabaseRecord
+
+@{
+    ViewData["Title"] = "Edit";
+}
+
+<!-- Basic Layout -->
+<div class="col-xxl">
+    <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h5 class="mb-0">Edit IMDS Database record</h5>
+            <small class="text-body-secondary float-end">Roles</small>
+        </div>
+        <div class="card-body">
+            <form asp-action="Edit">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="row mb-6">
+                    <label asp-for="PartNumber" class="col-sm-2 col-form-label">Part Number</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" asp-for="PartNumber" placeholder="Part number" />
+                        <span asp-validation-for="PartNumber" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="row mb-6">
+                    <label asp-for="ForsPN" class="col-sm-2 col-form-label">Fors PN</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" asp-for="ForsPN" placeholder="Fors PN" />
+                        <span asp-validation-for="ForsPN" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="row mb-6">
+                    <label asp-for="SIGIPPN" class="col-sm-2 col-form-label">SIGIP PN</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" asp-for="SIGIPPN" placeholder="SIGIP PN" />
+                        <span asp-validation-for="SIGIPPN" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="row mb-6">
+                    <label asp-for="VisualPN" class="col-sm-2 col-form-label">Visual PN</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" asp-for="VisualPN" placeholder="Visual PN" />
+                        <span asp-validation-for="VisualPN" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="row mb-6">
+                    <label asp-for="WGK" class="col-sm-2 col-form-label">WGK</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" asp-for="WGK" placeholder="WGK" />
+                        <span asp-validation-for="WGK" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="row mb-6">
+                    <label asp-for="NodeID" class="col-sm-2 col-form-label">Node ID</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" asp-for="NodeID" placeholder="Node ID" />
+                        <span asp-validation-for="NodeID" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="row justify-content-end">
+                    <div class="col-sm-10">
+                        <button type="submit" class="btn btn-primary">Edit</button>
+                        <a asp-action="Index" class="btn btn-secondary mx-2">Back</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

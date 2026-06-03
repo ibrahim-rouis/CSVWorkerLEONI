@@ -9,7 +9,7 @@ namespace CSVWorker.Controllers
         private readonly IWebHostEnvironment _env;
 
         // Default avatar relative path under wwwroot
-        private const string DefaultAvatarRelativePath = "img/avatars/default.svg";
+        private const string DefaultAvatarRelativePath = "~/img/avatars/default.svg";
 
         public AccountController(LdapService ldapService, IWebHostEnvironment env)
         {

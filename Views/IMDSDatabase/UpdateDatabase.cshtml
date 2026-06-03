@@ -32,12 +32,12 @@
                     </div>
                     <button type="submit" class="btn btn-primary btn-lg px-10">Start</button>
 
-                    @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
+                    @if (Model?.Success == false && !string.IsNullOrEmpty(Model?.ErrorMessage))
                     {
                         <div class="text-danger mt-3">@Model.ErrorMessage</div>
                     }
 
-                    @if (!string.IsNullOrEmpty(Model?.ErrorMessage))
+                    @if (Model?.Success == true)
                     {
                         <!-- Success Message (hidden by default) -->
                         <div class="alert alert-success mt-2 d-none">
