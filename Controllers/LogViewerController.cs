@@ -1,5 +1,6 @@
 using CSVWorker.Configuration;
 using CSVWorker.Models.ViewModels;
+using CSVWorker.Security;
 using CSVWorker.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -7,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace CSVWorker.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = Roles.Admin)]
     public class LogViewerController : Controller
     {
         private readonly LogViewerService _logViewerService;

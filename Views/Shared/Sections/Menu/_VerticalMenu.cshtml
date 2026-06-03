@@ -57,6 +57,13 @@
                 <div class="text-truncate">IMDS Database</div>
             </a>
         </li>
+
+        <li class='menu-item@(currentPage.StartsWith("/PorscheIMDSDatabase") ? " active" : "")'>
+            <a asp-controller="PorscheIMDSDatabase" asp-action="Index" class="menu-link">
+                <i class="menu-icon icon-base bx bx-data"></i>
+                <div class="text-truncate">Porsche Database</div>
+            </a>
+        </li>
         <!--/ Databases -->
 
         <!-- Macros -->

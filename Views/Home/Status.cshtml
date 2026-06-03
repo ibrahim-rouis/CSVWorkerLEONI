@@ -1,0 +1,26 @@
+@model int?
+
+@{
+    var code = Model ?? 0;
+    ViewData["Title"] = $"Status {code}";
+}
+
+<div class="text-center mt-5">
+    <h1 class="display-1 text-danger">Status @code</h1>
+    @if (code == 404)
+    {
+        <h2>Page not found.</h2>
+    }
+    else if (code == 403)
+    {
+
+        <h2>Access denied.</h2>
+    }
+    else
+    {
+        <h2>An error occurred.</h2>
+    }
+
+    <!-- Uses Tag Helpers to navigate back to the Index action of the Home controller -->
+    <a asp-controller="Home" asp-action="Index" class="btn btn-primary mt-3">Return to Home</a>
+</div>

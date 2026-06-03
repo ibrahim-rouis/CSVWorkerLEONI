@@ -95,6 +95,7 @@ if (!app.Environment.IsDevelopment())
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
+app.UseStatusCodePagesWithReExecute("/Home/Status/{0}");
 
 // Intercept HTTP errors and route them to the Home Controller's NotFound action
 //app.UseStatusCodePagesWithReExecute("/NotFound");

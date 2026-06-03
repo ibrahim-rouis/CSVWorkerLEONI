@@ -2,13 +2,14 @@
 using CSVWorker.Libs;
 using CSVWorker.Models.Entities;
 using CSVWorker.Models.ViewModels.IMDSMacros;
+using CSVWorker.Security;
 using CSVWorker.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CSVWorker.Controllers
 {
-    [Authorize(Roles = "Admin")]
+    [Authorize(Roles = Roles.AdminOrMaterialCompliance)]
     public class IMDSDatabaseController : Controller
     {
         private readonly ILogger<IMDSDatabaseController> _logger;

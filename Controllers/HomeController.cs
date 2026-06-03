@@ -1,6 +1,5 @@
-using CSVWorker.Models.ViewModels;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Diagnostics;
 
 namespace CSVWorker.Controllers
 {
@@ -18,18 +17,21 @@ namespace CSVWorker.Controllers
             return View();
         }
 
-        [ResponseCache(Duration = 0, Location = ResponseCacheLocation.None, NoStore = true)]
+        [AllowAnonymous]
         public IActionResult Error()
         {
-            return View(new ErrorViewModel { RequestId = Activity.Current?.Id ?? HttpContext.TraceIdentifier });
+            Response.StatusCode = 500;
+            _logger.LogError("Unhandled exception route hit.");
+            return View("Error");
         }
 
-        [Route("NotFound")]
-        public IActionResult NotFoundPage()
+        [AllowAnonymous]
+        public IActionResult Status(int? code)
         {
-            // It's good practice to set the status code explicitly on the response
-            Response.StatusCode = 404;
-            return View("NotFound");
+            var status = code ?? 500;
+            Response.StatusCode = status;
+            _logger.LogWarning("Status page requested: {Status}", status);
+            return View("Status", status); // Views/Home/Status.cshtml
         }
     }
 }
