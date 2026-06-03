@@ -37,7 +37,7 @@ namespace CSVWorker.Services.LDAP
             // Check cache to avoid hitting the database on every HTTP request
             if (!_cache.TryGetValue(cacheKey, out List<string>? cachedRoleNames))
             {
-                if(cachedRoleNames == null)
+                if (cachedRoleNames == null)
                 {
                     cachedRoleNames = new List<string>();
                 }

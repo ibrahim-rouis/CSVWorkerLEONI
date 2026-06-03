@@ -7,14 +7,19 @@ using CSVWorker.Models.Entities;
 using CSVWorker.Models.ViewModels.IMDSMacros;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Text.RegularExpressions;
 
 namespace CSVWorker.Services
 {
-    public class IMDSDatabaseService
+    public partial class IMDSDatabaseService
     {
         private readonly ILogger<IMDSDatabaseService> _logger;
         private readonly CSVWorkerDBContext _context;
         private readonly CSVWorkerConfig _config;
+
+        // Regular expression of a primary part number
+        [GeneratedRegex(@"^P(\d+)[A-Za-z]*$")]
+        private static partial Regex PartNumberRegex();
 
         public IMDSDatabaseService(ILogger<IMDSDatabaseService> logger, CSVWorkerDBContext context, IOptions<CSVWorkerConfig> config)
         {
@@ -353,6 +358,60 @@ namespace CSVWorker.Services
         public async Task<IMDSDatabaseRecord?> GetByIdAsync(int id)
         {
             return await _context.IMDSDatabase.FirstOrDefaultAsync(p => p.Id == id);
+        }
+
+        /// <summary>
+        /// Removes trailing letters from the end of a string if it starts with 'P' 
+        /// followed by at least one number, and ends with optional letters.
+        /// </summary>
+        /// <param name="input">The input string.</param>
+        /// <returns>The string with trailing letters removed if it matches the pattern; otherwise, the original string.</returns>
+        private string RemoveTrailingLetters(string input)
+        {
+            if (string.IsNullOrEmpty(input))
+                return input;
+
+            // Use the generated regex to match the pattern
+            var match = PartNumberRegex().Match(input);
+
+            if (match.Success)
+            {
+                // Returns 'P' + the numbers captured in Group 1
+                return "P" + match.Groups[1].Value;
+            }
+
+            return input;
+        }
+
+        // Find NodeID
+        public async Task<string?> FindNodeIDbyAny(string query)
+        {
+            var found = await _context.IMDSDatabase
+                .OrderByDescending(p => p.LastUpdatedAt)
+                .Where(p =>
+                (
+                    p.PartNumber == query ||
+                    p.ForsPN == query ||
+                    p.SIGIPPN == query ||
+                    p.VisualPN == query ||
+                    p.WGK == query
+                ))
+                .FirstOrDefaultAsync();
+
+            if (found != null && !string.IsNullOrEmpty(found.NodeID))
+            {
+                return found.NodeID;
+            }
+
+            string trimmedPartNumber = RemoveTrailingLetters(query);
+            if (query != trimmedPartNumber)
+            {
+                return await FindNodeIDbyAny(trimmedPartNumber);
+            }
+            else
+            {
+                return null;
+            }
         }
 
         public async Task<IMDSDatabaseRecord?> GetByPartNumbersAsync(string? partNumber, string? forstPN, string? sigipPN, string? visualPN, string? wgk)

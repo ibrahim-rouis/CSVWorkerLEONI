@@ -16,15 +16,9 @@
             <div class="card-body">
                 <form asp-action="MultiForsBomToIMDS" method="post" enctype="multipart/form-data" id="download-form">
                     <div class="mb-6">
-                        <label class="form-label fs-5" asp-for="CsvFiles">FORS BOM Folder (Must contain FORS CSV files)</label>
-                        <input asp-for="CsvFiles" type="file" class="form-control" multiple webkitdirectory directory
-                               accept=".csv,text/csv" />
+                        <label class="form-label fs-5" asp-for="CsvFiles">FORS BOM CSV files</label>
+                        <input asp-for="CsvFiles" type="file" class="form-control" multiple accept=".csv,text/csv" />
                         <span asp-validation-for="CsvFiles" class="text-danger"></span>
-                    </div>
-                    <div class="mb-6">
-                        <label class="form-label fs-5" asp-for="DatabaseCSV">IMDS Database CSV</label>
-                        <input asp-for="DatabaseCSV" type="file" class="form-control" accept=".csv,text/csv" required />
-                        <span asp-validation-for="DatabaseCSV" class="text-danger"></span>
                     </div>
                     <button type="submit" class="btn btn-primary btn-lg px-10">Start</button>
 

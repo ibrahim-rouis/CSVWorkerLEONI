@@ -1,5 +1,6 @@
 ﻿using CSVWorker.Exceptions;
 using CSVWorker.Libs;
+using CSVWorker.Models.DTO;
 using CSVWorker.Models.ViewModels.IMDSMacros;
 using System.IO.Compression;
 
@@ -8,10 +9,12 @@ namespace CSVWorker.Services
     public class IMDSMacrosService
     {
         private readonly ILogger<IMDSMacrosService> _logger;
+        private readonly IMDSDatabaseService _imdsService;
 
-        public IMDSMacrosService(ILogger<IMDSMacrosService> logger)
+        public IMDSMacrosService(ILogger<IMDSMacrosService> logger, IMDSDatabaseService imdsService)
         {
             _logger = logger;
+            _imdsService = imdsService;
         }
 
         /// <summary>
@@ -24,34 +27,21 @@ namespace CSVWorker.Services
         /// <exception cref="CSVWorkerInvalidDataException">Thrown when the Database CSV file header is invalid or empty.</exception>
         public async Task<byte[]> MultiForsBomToIMDS(MultiForsBomToIMDSBomVM model, CancellationToken cancellationToken)
         {
-            _logger.LogDebug("MultiForsBomToIMDS started. CSV files count={CsvFilesCount}, Database CSV provided={DatabaseCsvName}", model.CsvFiles?.Count() ?? 0, model.DatabaseCSV?.FileName);
+            _logger.LogDebug("MultiForsBomToIMDS started. CSV files count={CsvFilesCount}", model.CsvFiles?.Count() ?? 0);
 
-            if (model.CsvFiles == null || !model.CsvFiles.Any() || model.DatabaseCSV == null)
+            if (model.CsvFiles == null || !model.CsvFiles.Any())
             {
-                throw new CSVWorkerArgumentException("Input missing - please provide at least one FORS BOM CSV file and a Database CSV file.");
+                throw new CSVWorkerArgumentException("Input missing - please provide at least one FORS BOM CSV");
             }
-
-            // Database headers indexes
-            int databaseLeoniPartIndex;
-            int databaseNodeIdIndex;
-            int databaseFORSPNIndex;
-            int databaseSIGIPNIndex;
-            int databaseVisualPNIndex;
-            int databaseWGKIndex;
 
 
             // FORS Bom indexes
+            const int forsBomProdNumberIndex = 0;
             const int forsBomPartNumberIndex = 1;
             const int forsBomMaterialGroupIndex = 3;
             const int forsBomWeightIndex = 11;
             const int forsBomQuantityIndex = 4;
             const int forsBomMUIndex = 5;
-
-            // RC's MUs
-            List<string> rcMU = new List<string>
-                {
-                   "ST"
-                };
 
 
             // Ignored material groups that are not relevant for IMDS 
@@ -72,63 +62,6 @@ namespace CSVWorker.Services
                 (["PART/ITEM NO/", "Node ID"])
             };
 
-            // Load Database CSV
-            var database = new List<string[]>();
-            using (var stream = model.DatabaseCSV.OpenReadStream())
-            {
-                using (var reader = new StreamReader(stream))
-                {
-                    /** Read header **/
-                    var header = await reader.ReadLineAsync(cancellationToken);
-                    if (string.IsNullOrEmpty(header))
-                    {
-                        throw new CSVWorkerInvalidDataException("Database CSV file header is invalid or empty.");
-                    }
-
-                    // detect delimiter (it is always ';' for leoni but sometimes it can be ','
-                    var delimiter = CsvHelper.DetectDelimiter(header);
-
-                    // split header line into columns
-                    var headerRow = CsvHelper.ParseLine(header, delimiter);
-                    if (headerRow == null || headerRow.Length == 0)
-                    {
-                        throw new CSVWorkerInvalidDataException("Database CSV file header is invalid or empty.");
-                    }
-
-                    // Get required columns indexes by header names,
-                    // with some fallback options for different possible header names,
-                    // and fallback index if none of the expected header names are found.
-                    databaseLeoniPartIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "LEONI Part Number", "PART/ITEM NO/" }, fallbackIndex: 2);
-                    databaseNodeIdIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Node ID", "Noeud", "Nœud" }, fallbackIndex: 0);
-                    databaseFORSPNIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "FORS PN", "FORS" }, fallbackIndex: 3);
-                    databaseSIGIPNIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "SIGIP PN", "SIGIP" }, fallbackIndex: 4);
-                    databaseVisualPNIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Visual PN", "Visual" }, fallbackIndex: 5);
-                    databaseWGKIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "WGK", "Wide Group Key" }, fallbackIndex: 6);
-
-                    /** Finish read header **/
-
-                    // Read the file line by line asynchronously
-                    string? line;
-                    while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
-                    {
-                        // Parse each line into columns using the detected delimiter and add to database list
-                        var row = CsvHelper.ParseLine(line, delimiter);
-                        if (row != null)
-                        {
-                            database.Add(row);
-                        }
-                    }
-                }
-            }
-
-            // Build a fast lookup dictionary for the database by part number
-            // These are needed to efficiently find Node IDs for the parts in the FORS BOM files when building the IMDS output.
-            var databaseByLeoniPart = CsvHelper.BuildFastLookupDictionary(database, databaseLeoniPartIndex);
-            var databaseByFORSPN = CsvHelper.BuildFastLookupDictionary(database, databaseFORSPNIndex);
-            var databaseBySIGIPN = CsvHelper.BuildFastLookupDictionary(database, databaseSIGIPNIndex);
-            var databaseByVisualPN = CsvHelper.BuildFastLookupDictionary(database, databaseVisualPNIndex);
-            var databaseByWGK = CsvHelper.BuildFastLookupDictionary(database, databaseWGKIndex);
-
             // Create a ZIP archive in memory and add the generated CSV files as an entry.
             // The ZIP file will contain one CSV file with the IMDS data, 
             // and if there are missing nodes, another CSV file with the missing nodes data.
@@ -143,22 +76,8 @@ namespace CSVWorker.Services
                     {
                         throw new CSVWorkerArgumentException($"File '{file.FileName}' is not a valid CSV file.");
                     }
-
-                    // Product numbers
-                    // We will generate one IMDS CSV file per product number,
-                    // so we need to keep track of the product numbers in the current FORS BOM file.
-                    var productNumbers = new HashSet<string>();
-
-                    /** Materials **/
-
-                    // We will separate RS materials (cables, tapes, etc) from RC materials (discrete components like connectors)
-
                     // RS materials
-                    var cablesAndTapes = new Dictionary<string, List<string[]>>();
-                    // RC materials
-                    var rcMaterials = new Dictionary<string, List<string[]>>();
-
-                    /** End Materials **/
+                    var materials = new List<ForsMaterial>();
 
                     // Parse FORS BOM CSV
                     using (var stream = file.OpenReadStream())
@@ -180,10 +99,6 @@ namespace CSVWorker.Services
                                 var row = CsvHelper.ParseLine(line, ';');
                                 if (row != null && row.Length >= 12)
                                 {
-                                    // Product number is always in the first column
-                                    var productNumber = row[0];
-                                    productNumbers.Add(productNumber);
-
                                     // Skip header or rows that has "Total", "Summe", etc
                                     if (skipIndicators.Contains(row[0]) || skipIndicators.Contains(row[1]))
                                         continue;
@@ -194,31 +109,25 @@ namespace CSVWorker.Services
                                         // do nothing, ignore these material groups
                                         continue;
                                     }
-                                    // Discrete Components (RC)
-                                    else if (rcMU.Contains(row[forsBomMUIndex]))
-                                    {
-                                        if (!rcMaterials.ContainsKey(productNumber))
-                                        {
-                                            rcMaterials[productNumber] = new List<string[]>();
-                                        }
-                                        rcMaterials[productNumber].Add(row);
-                                    }
-                                    // Cables and tapes (RS)
-                                    else
-                                    {
-                                        if (!cablesAndTapes.ContainsKey(productNumber))
-                                        {
-                                            cablesAndTapes[productNumber] = new List<string[]>();
-                                        }
-                                        cablesAndTapes[productNumber].Add(row);
-                                    }
 
+                                    materials.Add(new ForsMaterial
+                                    {
+                                        ProductNumber = row[forsBomProdNumberIndex],
+                                        PartNumber = row[forsBomPartNumberIndex],
+                                        MaterialClass = row[forsBomMaterialGroupIndex],
+                                        MU = row[forsBomMUIndex],
+                                        Quantity = double.TryParse(row[forsBomQuantityIndex].Replace(',', '.'), out var quantity) ? quantity : 0,
+                                        Weight = double.TryParse(row[forsBomWeightIndex].Replace(',', '.'), out var weight) ? weight * 1000 : 0 // convert weight from kg to g, as IMDS expects weight in grams
+                                    });
                                 }
                             }
                         }
                     }
 
                     /** IMDS Output Construction **/
+
+                    // Get distinct product numbers from the materials, as we need to generate one IMDS file per product number.
+                    var productNumbers = materials.Select(m => m.ProductNumber).Distinct();
 
                     foreach (var productNumber in productNumbers)
                     {
@@ -234,76 +143,57 @@ namespace CSVWorker.Services
                                 ([productNumber, "CABLES & TAPES", "CABLES & TAPES", "1", string.Empty, "g", "5", "C", string.Empty, string.Empty, string.Empty])
                             };
 
+                        // Get RS and RC materials for the current product number
+                        var rsMaterials = materials.Where(m => m.ProductNumber == productNumber && m.MU != "ST").ToList();
+                        var rcMaterials = materials.Where(m => m.ProductNumber == productNumber && m.MU == "ST").ToList();
+
+
                         // Add cables and tapes to IMDS output
-                        if (cablesAndTapes.ContainsKey(productNumber))
+                        if (rsMaterials != null && rsMaterials.Count > 0)
                         {
-                            foreach (var row in cablesAndTapes[productNumber])
+                            foreach (var material in rsMaterials)
                             {
-                                var partNumber = row[forsBomPartNumberIndex];
-                                var weight = row[forsBomWeightIndex].Replace(',', '.'); // IMDS expects '.' as decimal separator
 
-                                // convert weight to double
-                                if (double.TryParse(weight, out var weightValue))
-                                {
-                                    weightValue *= 1000; // Convert kg to g
-                                    weight = weightValue.ToString("F3");
-                                }
-                                else
-                                {
-                                    // If parsing fails, column will have ERR to indicate error parsing.
-                                    weight = "ERR";
-                                }
-
-                                // Find Node ID for this part number from the Database CSV, if available
-                                var nodeId = IMDSHelper.GetNodeID(partNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
+                                // Find Node ID for this part number from the Database
+                                material.NodeID = await _imdsService.FindNodeIDbyAny(material.PartNumber);
 
                                 // if nodeId is null (not found) add it to missing nodes list,
                                 // and mark that current file has missing nodes so we can indicate it in the generated file name later.
-                                if (nodeId == null)
+                                if (material.NodeID == null)
                                 {
                                     if (!currentFileHasMissingNodes)
                                     {
                                         currentFileHasMissingNodes = true;
                                     }
-                                    missingNodes.Add([partNumber, "#N/A"]);
+                                    missingNodes.Add([material.PartNumber, "#N/A"]);
                                 }
 
                                 // Append to IMDS output
-                                outputRow.Add(["CABLES & TAPES", partNumber, partNumber, string.Empty, weight, "g", string.Empty, "RS", nodeId ?? "#N/A", string.Empty, string.Empty]);
+                                outputRow.Add(["CABLES & TAPES", material.PartNumber, material.PartNumber, string.Empty, material.Weight.ToString("F3"), "g", string.Empty, "RS", material.NodeID ?? "#N/A", string.Empty, string.Empty]);
                             }
                         }
 
                         // Add connectors to IMDS output
-                        if (rcMaterials.ContainsKey(productNumber))
+                        if (rcMaterials != null && rcMaterials.Count > 0)
                         {
-                            foreach (var row in rcMaterials[productNumber])
+                            foreach (var material in rcMaterials)
                             {
-                                var partNumber = row[forsBomPartNumberIndex];
-                                var quantity = row[forsBomQuantityIndex].Replace(',', '.'); // IMDS expects '.' as decimal separator
-                                var quantityValue = int.MinValue;
-
-                                // convert quantity to int
-                                if (double.TryParse(quantity, out var quantityValueDouble))
-                                {
-                                    quantityValue = (int)quantityValueDouble;
-                                }
-                                // If parsing fails, column will have ERR to indicate error parsing.
-                                quantity = quantityValue > int.MinValue ? quantityValue.ToString() : "ERR";
-
-                                // Find Node ID for this part number from the Database CSV, if available
-                                var nodeId = IMDSHelper.GetNodeID(partNumber, databaseByLeoniPart, databaseByFORSPN, databaseBySIGIPN, databaseByVisualPN, databaseByWGK, databaseNodeIdIndex);
+                                // Find Node ID for this part number from the Database
+                                material.NodeID = await _imdsService.FindNodeIDbyAny(material.PartNumber);
 
                                 // if nodeId is null (not found)
-                                if (nodeId == null)
+                                if (material.NodeID == null)
                                 {
                                     if (!currentFileHasMissingNodes)
                                     {
                                         currentFileHasMissingNodes = true;
                                     }
-                                    missingNodes.Add([partNumber, "#N/A"]);
+                                    missingNodes.Add([material.PartNumber, "#N/A"]);
                                 }
 
-                                outputRow.Add([productNumber, partNumber, partNumber, quantity, string.Empty, string.Empty, string.Empty, "RC", nodeId ?? "#N/A", string.Empty, string.Empty]);
+                                int quantity = (int)material.Quantity;
+
+                                outputRow.Add([productNumber, material.PartNumber, material.PartNumber, quantity.ToString(), string.Empty, string.Empty, string.Empty, "RC", material.NodeID ?? "#N/A", string.Empty, string.Empty]);
                             }
                         }
 
@@ -338,7 +228,7 @@ namespace CSVWorker.Services
                         {
                             // IMDS csv is commas separated.
                             // unlike FORS BOM input csv files which are semicolon separated.
-                            var imdsFileEntryOutputBytes = await CsvHelper.ConvertListToCsv(outputRow, ',', cancellationToken);
+                            var imdsFileEntryOutputBytes = await CsvHelper.ConvertListToCsv(outputRow, ';', cancellationToken);
                             await entryStream.WriteAsync(imdsFileEntryOutputBytes, cancellationToken);
                             await entryStream.FlushAsync(cancellationToken);
                         }

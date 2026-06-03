@@ -1,13 +1,7 @@
-﻿using System.ComponentModel.DataAnnotations;
-
-namespace CSVWorker.Models.ViewModels.IMDSMacros
+﻿namespace CSVWorker.Models.ViewModels.IMDSMacros
 {
     public class MultiForsBomToIMDSBomVM
     {
-        // Database CSV file, required for Node ID lookup
-        [Required]
-        public IFormFile? DatabaseCSV { get; set; }
-
         // Accepts multiple files
         public IEnumerable<IFormFile> CsvFiles { get; set; } = new List<IFormFile>();
 
