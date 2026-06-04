@@ -1,0 +1,55 @@
+﻿@using CSVWorker.Models.Entities
+@model IMDSPorscheDatabaseRecord
+
+@{
+    ViewData["Title"] = "Create";
+}
+
+<!-- Basic Layout -->
+<div class="col-xxl">
+    <div class="card">
+        <div class="card-header d-flex align-items-center justify-content-between">
+            <h5 class="mb-0">Create IMDS Porsche record</h5>
+            <small class="text-body-secondary float-end">IMDS Porsche Database</small>
+        </div>
+        <div class="card-body">
+            <form asp-action="Create">
+                <div asp-validation-summary="ModelOnly" class="text-danger"></div>
+                <div class="row mb-6">
+                    <label asp-for="PartNumber" class="col-sm-2 col-form-label">Part Number</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" asp-for="PartNumber" placeholder="Part number" />
+                        <span asp-validation-for="PartNumber" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="row mb-6">
+                    <label asp-for="ArticleName" class="col-sm-2 col-form-label">Article Name</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" asp-for="ArticleName" placeholder="Article Name" />
+                        <span asp-validation-for="ArticleName" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="row mb-6">
+                    <label asp-for="MaterialGroup" class="col-sm-2 col-form-label">Material Group</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" asp-for="MaterialGroup" placeholder="Material Group" />
+                        <span asp-validation-for="MaterialGroup" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="row mb-6">
+                    <label asp-for="CrossSec" class="col-sm-2 col-form-label">Cross-Sec</label>
+                    <div class="col-sm-10">
+                        <input type="text" class="form-control" asp-for="CrossSec" placeholder="Cross-Sec" />
+                        <span asp-validation-for="CrossSec" class="text-danger"></span>
+                    </div>
+                </div>
+                <div class="row justify-content-end">
+                    <div class="col-sm-10">
+                        <button type="submit" class="btn btn-primary">Create</button>
+                        <a asp-action="Index" class="btn btn-secondary mx-2">Back</a>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>

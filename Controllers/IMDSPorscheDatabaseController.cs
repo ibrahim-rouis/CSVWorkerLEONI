@@ -9,12 +9,12 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CSVWorker.Controllers
 {
-    public class IMDSDatabaseController : Controller
+    public class IMDSPorscheDatabaseController : Controller
     {
-        private readonly ILogger<IMDSDatabaseController> _logger;
-        private readonly IMDSDatabaseService _service;
+        private readonly ILogger<IMDSPorscheDatabaseController> _logger;
+        private readonly IMDSPorscheDatabaseService _service;
 
-        public IMDSDatabaseController(ILogger<IMDSDatabaseController> logger, IMDSDatabaseService service)
+        public IMDSPorscheDatabaseController(ILogger<IMDSPorscheDatabaseController> logger, IMDSPorscheDatabaseService service)
         {
             _logger = logger;
             _service = service;
@@ -22,8 +22,7 @@ namespace CSVWorker.Controllers
 
         public async Task<IActionResult> Index(int? pageNumber, string? query)
         {
-            _logger.LogInformation($"IMDSDatabase Index page accessed by user {User.Identity?.Name} with pageNumber={pageNumber} and query={query}.");
-
+            _logger.LogInformation($"IMDSPorscheDatabase Index page accessed by user {User.Identity?.Name} with pageNumber={pageNumber} and query={query}.");
             var model = await _service.GetPagedAsync(pageNumber, query);
 
             ViewData["query"] = query ?? "";
@@ -34,16 +33,16 @@ namespace CSVWorker.Controllers
         [Authorize(Roles = Roles.AdminOrManager)]
         public IActionResult Create()
         {
-            _logger.LogInformation($"IMDSDatabase Create page accessed by user {User.Identity?.Name}.");
+            _logger.LogInformation($"IMDSPorscheDatabase Create page accessed by user {User.Identity?.Name}.");
             return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = Roles.AdminOrManager)]
-        public async Task<IActionResult> Create([Bind("PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
+        public async Task<IActionResult> Create([Bind("PartNumber,ArticleName,MaterialGroup,CrossSec")] IMDSPorscheDatabaseRecord model)
         {
-            _logger.LogInformation($"IMDSDatabase Create attempt by user {User.Identity?.Name} with PartNumber={model.PartNumber}, ForsPN={model.ForsPN}, SIGIPPN={model.SIGIPPN}, VisualPN={model.VisualPN}, WGK={model.WGK}, NodeID={model.NodeID}.");
+            _logger.LogInformation($"IMDSPorscheDatabase Create attempt by user {User.Identity?.Name} with PartNumber={model.PartNumber}, ArticleName={model.ArticleName}, MaterialGroup={model.MaterialGroup}, CrossSec={model.CrossSec}.");
             if (!ModelState.IsValid)
             {
                 return View(model);
@@ -56,7 +55,7 @@ namespace CSVWorker.Controllers
             }
             catch (CSVWorkerException ex)
             {
-                _logger.LogError(ex, "Error creating IMDSDatabaseRecord");
+                _logger.LogError(ex, "Error creating IMDSPorscheDatabaseRecord");
                 ModelState.AddModelError(string.Empty, ex.Message);
                 return View(model);
             }
@@ -65,7 +64,7 @@ namespace CSVWorker.Controllers
         [Authorize(Roles = Roles.AdminOrManager)]
         public async Task<IActionResult> Edit(int id)
         {
-            _logger.LogInformation($"IMDSDatabase Edit page accessed by user {User.Identity?.Name} for record ID={id}.");
+            _logger.LogInformation($"IMDSPorscheDatabase Edit page accessed by user {User.Identity?.Name} for record ID {id}.");
             var record = await _service.GetByIdAsync(id);
             if (record == null)
             {
@@ -77,9 +76,9 @@ namespace CSVWorker.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = Roles.AdminOrManager)]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
+        public async Task<IActionResult> Edit(int id, [Bind("Id,PartNumber,ArticleName,MaterialGroup,CrossSec")] IMDSPorscheDatabaseRecord model)
         {
-            _logger.LogInformation($"IMDSDatabase Edit attempt by user {User.Identity?.Name} for record ID={id} with PartNumber={model.PartNumber}, ForsPN={model.ForsPN}, SIGIPPN={model.SIGIPPN}, VisualPN={model.VisualPN}, WGK={model.WGK}, NodeID={model.NodeID}.");
+            _logger.LogInformation($"IMDSPorscheDatabase Edit attempt by user {User.Identity?.Name} for record ID={id} with PartNumber={model.PartNumber}, ArticleName={model.ArticleName}, MaterialGroup={model.MaterialGroup}, CrossSec={model.CrossSec}.");
             if (id != model.Id)
             {
                 return BadRequest();
@@ -97,17 +96,16 @@ namespace CSVWorker.Controllers
             }
             catch (CSVWorkerException ex)
             {
-                _logger.LogError(ex, "Error updating IMDSDatabaseRecord");
+                _logger.LogError(ex, "Error updating IMDSPorscheDatabaseRecord");
                 ModelState.AddModelError(string.Empty, ex.Message);
                 return View(model);
             }
         }
 
         [Authorize(Roles = Roles.AdminOrManager)]
-        public IActionResult UpdateDatabase()
+        public IActionResult UpdatePorscheDatabase()
         {
-            _logger.LogInformation($"IMDSDatabase UpdateDatabase page accessed by user {User.Identity?.Name}.");
-            return View(new UpdateDatabaseVM());
+            return View(new UpdatePorscheDatabaseVM());
         }
 
         [HttpPost]
@@ -117,28 +115,23 @@ namespace CSVWorker.Controllers
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
         [ValidateAntiForgeryToken]
         [Authorize(Roles = Roles.AdminOrManager)]
-        public async Task<IActionResult> UpdateDatabase(UpdateDatabaseVM model, CancellationToken cancellationToken)
+        public async Task<IActionResult> UpdatePorscheDatabase(UpdatePorscheDatabaseVM model, CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"IMDSDatabase UpdateDatabase attempt by user {User.Identity?.Name} with LPCPFile={model.LPCPFile?.FileName}, A2File={model.A2File?.FileName}.");
+            _logger.LogInformation($"POST action sent by user {User.Identity?.Name} to UpdatePorscheDatabase with file {model.PorscheCSV?.FileName}.");
             if (!ModelState.IsValid)
             {
                 model.ErrorMessage = "Please fill all required fields.";
                 return View(model);
             }
-            if (!CsvHelper.IsValidCSV(model.LPCPFile))
+            if (!CsvHelper.IsValidCSV(model.PorscheCSV))
             {
-                model.ErrorMessage = "Please select a valid LCPC CSV file.";
-                return View(model);
-            }
-            if (!CsvHelper.IsValidCSV(model.A2File))
-            {
-                model.ErrorMessage = "Please select a valid A2 CSV file.";
+                model.ErrorMessage = "Please select a valid Porsche CSV file.";
                 return View(model);
             }
 
             try
             {
-                await _service.UpdateDatabaseIMDS(model, User.Identity?.Name, cancellationToken);
+                await _service.UpdatePorscheDatabase(model, User.Identity?.Name, cancellationToken);
                 model.Success = true;
                 model.ErrorMessage = null;
                 return View(model);
@@ -154,7 +147,7 @@ namespace CSVWorker.Controllers
         // details
         public async Task<IActionResult> Details(int id)
         {
-            _logger.LogInformation($"IMDSDatabase Details page accessed by user {User.Identity?.Name} for record ID={id}.");
+            _logger.LogInformation($"IMDSPorscheDatabase Details page accessed by user {User.Identity?.Name} for record ID {id}.");
             var record = await _service.GetByIdAsync(id);
             if (record == null)
             {

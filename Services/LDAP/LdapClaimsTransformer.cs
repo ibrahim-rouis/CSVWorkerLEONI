@@ -57,8 +57,11 @@ namespace CSVWorker.Services.LDAP
                     cachedRoleNames.Add(Roles.Admin);
                 }
 
-                // Store in memory cache
-                _cache.Set(cacheKey, cachedRoleNames, CacheDuration);
+                // Store in memory cache only if cachedRoleNames has roles
+                if (cachedRoleNames != null && cachedRoleNames.Count > 0)
+                {
+                    _cache.Set(cacheKey, cachedRoleNames, CacheDuration);
+                }
             }
 
             // Inject LDAP roles using a new Identity

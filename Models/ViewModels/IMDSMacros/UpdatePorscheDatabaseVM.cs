@@ -2,13 +2,10 @@
 
 namespace CSVWorker.Models.ViewModels.IMDSMacros
 {
-    public class UpdateDatabaseVM
+    public class UpdatePorscheDatabaseVM
     {
         [Required]
-        public IFormFile? LPCPFile { get; set; }
-
-        [Required]
-        public IFormFile? A2File { get; set; }
+        public IFormFile? PorscheCSV { get; set; }
 
         public string? ErrorMessage { get; set; }
 

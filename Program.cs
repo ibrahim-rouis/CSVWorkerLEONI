@@ -53,6 +53,7 @@ builder.Services.AddTransient<IClaimsTransformation, LdapClaimsTransformer>();
 // IMDS Services
 builder.Services.AddScoped<IMDSMacrosService>();
 builder.Services.AddScoped<IMDSDatabaseService>();
+builder.Services.AddScoped<IMDSPorscheDatabaseService>();
 
 // Logs service
 builder.Services.AddScoped<LogViewerService>();

@@ -238,7 +238,7 @@ namespace CSVWorker.Services
             /** End Load LPCP and A2 CSV files **/
 
             // Cleanup duplicates from LPCP records based on all part number columns
-            lpcpRecords = lpcpRecords
+            lpcpRecords = [.. lpcpRecords
                 .GroupBy(r => new
                 {
                     PartNumber = r.PartNumber?.Trim(),
@@ -247,8 +247,7 @@ namespace CSVWorker.Services
                     VisualPN = r.VisualPN?.Trim(),
                     WGK = r.WGK?.Trim()
                 })
-                .Select(g => g.First())
-                .ToList();
+                .Select(g => g.First())];
 
             _logger.LogDebug($"There are {lpcpRecords.Count} unique rows in LPCP.");
 

@@ -1,0 +1,60 @@
+﻿@using CSVWorker.Models.ViewModels.IMDSMacros
+@model UpdatePorscheDatabaseVM
+@{
+    ViewData["Title"] = "Update IMDS Porsche Database";
+}
+
+@* ************** Content ************** *@
+<!-- Basic Layout -->
+<div class="row mb-6 gy-6">
+    <div class="col-xl">
+        <!-- Menu -->
+        <div class="card-body mb-3">
+            <a asp-action="Index" class="btn rounded-pill btn-secondary">Back to Table</a>
+            <a asp-action="Create" class="btn rounded-pill btn-primary">Add new record</a>
+        </div>
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Update IMDS Porsche Database</h5>
+                <small class="text-body float-end">IMDS Porsche Database</small>
+            </div>
+            <div class="card-body">
+                <form asp-action="UpdatePorscheDatabase" method="post" enctype="multipart/form-data" id="download-form">
+                    <div class="mb-6">
+                        <label class="form-label fs-5" asp-for="PorscheCSV">Porsche CSV</label>
+                        <input asp-for="PorscheCSV" type="file" class="form-control" accept=".csv,text/csv" required />
+                        <span asp-validation-for="PorscheCSV" class="text-danger"></span>
+                    </div>
+                    <button type="submit" class="btn btn-primary btn-lg px-10">Start</button>
+
+                    @if (Model?.Success == false && !string.IsNullOrEmpty(Model?.ErrorMessage))
+                    {
+                        <div class="text-danger mt-3">@Model.ErrorMessage</div>
+                    }
+
+                    @if (Model?.Success == true)
+                    {
+                        <!-- Success Message (hidden by default) -->
+                        <div class="alert alert-success mt-2 d-none">
+                            File successfully downloaded!
+                        </div>
+                    }
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+@section PageScripts {
+    <script>
+        document.getElementById('download-form').addEventListener('submit', function () {
+            // disable submit button
+            var submitButton = this.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+
+            // set submit button name to running...
+            var originalButtonText = submitButton.textContent;
+            submitButton.textContent = 'Running...';
+        });
+    </script>
+}
