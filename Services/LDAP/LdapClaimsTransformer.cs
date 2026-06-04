@@ -1,4 +1,5 @@
-﻿using Microsoft.AspNetCore.Authentication;
+﻿using CSVWorker.Security;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.Extensions.Caching.Memory;
 using System.Security.Claims;
 
@@ -53,7 +54,7 @@ namespace CSVWorker.Services.LDAP
                 // In development mode only set any connected user as admin if LDAP is not configured or returns no groups.
                 else if (_env.IsDevelopment() && adGroups == null)
                 {
-                    cachedRoleNames.Add("Admin");
+                    cachedRoleNames.Add(Roles.Admin);
                 }
 
                 // Store in memory cache

@@ -9,7 +9,6 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace CSVWorker.Controllers
 {
-    [Authorize(Roles = Roles.AdminOrMaterialCompliance)]
     public class IMDSDatabaseController : Controller
     {
         private readonly ILogger<IMDSDatabaseController> _logger;
@@ -32,6 +31,7 @@ namespace CSVWorker.Controllers
             return View(model);
         }
 
+        [Authorize(Roles = Roles.AdminOrManager)]
         public IActionResult Create()
         {
             return View();
@@ -39,6 +39,7 @@ namespace CSVWorker.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = Roles.AdminOrManager)]
         public async Task<IActionResult> Create([Bind("PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
         {
             if (!ModelState.IsValid)
@@ -59,6 +60,7 @@ namespace CSVWorker.Controllers
             }
         }
 
+        [Authorize(Roles = Roles.AdminOrManager)]
         public async Task<IActionResult> Edit(int id)
         {
             var record = await _service.GetByIdAsync(id);
@@ -71,6 +73,7 @@ namespace CSVWorker.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = Roles.AdminOrManager)]
         public async Task<IActionResult> Edit(int id, [Bind("Id,PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
         {
             if (id != model.Id)
@@ -96,6 +99,7 @@ namespace CSVWorker.Controllers
             }
         }
 
+        [Authorize(Roles = Roles.AdminOrManager)]
         public IActionResult UpdateDatabase()
         {
             return View(new UpdateDatabaseVM());
@@ -107,6 +111,7 @@ namespace CSVWorker.Controllers
         [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
         [ValidateAntiForgeryToken]
+        [Authorize(Roles = Roles.AdminOrManager)]
         public async Task<IActionResult> UpdateDatabase(UpdateDatabaseVM model, CancellationToken cancellationToken)
         {
             if (!ModelState.IsValid)

@@ -1,14 +1,11 @@
 ﻿using CSVWorker.Exceptions;
 using CSVWorker.Libs;
 using CSVWorker.Models.ViewModels.IMDSMacros;
-using CSVWorker.Security;
 using CSVWorker.Services;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CSVWorker.Controllers
 {
-    [Authorize(Roles = Roles.AdminOrMaterialCompliance)]
     public class IMDSMacrosController : Controller
     {
         private readonly IMDSMacrosService _service;

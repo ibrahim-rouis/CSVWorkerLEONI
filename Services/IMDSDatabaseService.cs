@@ -503,7 +503,7 @@ namespace CSVWorker.Services
 
             var total = await q.CountAsync();
             var items = await q
-                .OrderByDescending(r => r.CreatedAt) // apply ordering after filtering
+                .OrderByDescending(r => r.LastUpdatedAt) // apply ordering after filtering
                 .Skip((pageNumber.Value - 1) * pageSize)
                 .Take(pageSize)
                 .ToListAsync();

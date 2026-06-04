@@ -1,3 +1,5 @@
+@using CSVWorker.Security
+
 @{
     TempData.Keep();
     string? currentPage = ViewContext.HttpContext.Request.Path;
@@ -29,7 +31,7 @@
     @* ! menu-items *@
     <ul class="menu-inner py-1">
 
-        @if (User.IsInRole("Admin"))
+        @if (User.IsInRole(Roles.Admin))
         {
             <!-- Misc -->
             <li class="menu-header small text-uppercase"><span class="menu-header-text">Admin</span></li>

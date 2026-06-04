@@ -2,8 +2,8 @@
 {
     public static class Roles
     {
-        public const string Admin = "Admin";
-        public const string MaterialCompliance = "MaterialCompliance";
-        public const string AdminOrMaterialCompliance = $"{Admin},{MaterialCompliance}";
+        public const string Admin = "IT_Admin";
+        public const string Manager = "MaterialComplianceGroupName";
+        public const string AdminOrManager = $"{Admin},{Manager}";
     }
 }

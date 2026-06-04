@@ -91,20 +91,19 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseExceptionHandler("/Errors/Error");
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }
-app.UseStatusCodePagesWithReExecute("/Home/Status/{0}");
-
-// Intercept HTTP errors and route them to the Home Controller's NotFound action
-//app.UseStatusCodePagesWithReExecute("/NotFound");
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
 app.UseRouting();
 
 app.UseAuthentication();
+
+// Capture status codes ONLY after authentication state has resolved
+app.UseStatusCodePagesWithReExecute("/Errors/{0}");
 
 app.UseAuthorization();
 

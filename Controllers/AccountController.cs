@@ -1,10 +1,8 @@
 ﻿using CSVWorker.Services.LDAP;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace CSVWorker.Controllers
 {
-    [Authorize]
     public class AccountController : Controller
     {
         private readonly LdapService _service;
