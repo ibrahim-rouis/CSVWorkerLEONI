@@ -295,7 +295,7 @@ namespace CSVWorker.Services
             // Reset stream position so the Controller can return it as a File
             zipStream.Position = 0;
 
-            _logger.LogDebug("MultiForsBomToIMDS finished. Generated {Count} BOM files inside ZIP.", model.CsvFiles.Count());
+            _logger.LogDebug("MultiForsBomToIMDS finished.");
             return zipStream.ToArray();
         }
 
