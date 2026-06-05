@@ -10,21 +10,22 @@ namespace CSVWorker.Services
     {
         private readonly ILogger<IMDSMacrosService> _logger;
         private readonly IMDSDatabaseService _imdsService;
+        private readonly IMDSPorscheDatabaseService _porscheService;
 
-        public IMDSMacrosService(ILogger<IMDSMacrosService> logger, IMDSDatabaseService imdsService)
+        public IMDSMacrosService(ILogger<IMDSMacrosService> logger, IMDSDatabaseService imdsService, IMDSPorscheDatabaseService imdsPorscheDatabaseService)
         {
             _logger = logger;
             _imdsService = imdsService;
+            _porscheService = imdsPorscheDatabaseService;
         }
 
         /// <summary>
-        /// This method transforms multiple FORS BOM CSV files into IMDS format CSV files, using a Database CSV file for enrichment.
+        /// Generates IMDS-compliant CSV files from the provided FORS BOM CSV files and returns them as a ZIP archive.
         /// </summary>
-        /// <param name="model">The view model containing the FORS BOM CSV files and the Database CSV file.</param>
-        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
-        /// <returns>A byte array representing the transformed IMDS CSV files.</returns>
-        /// <exception cref="CSVWorkerArgumentException">Thrown when input files are missing or invalid.</exception>
-        /// <exception cref="CSVWorkerInvalidDataException">Thrown when the Database CSV file header is invalid or empty.</exception>
+        /// <param name="model">The model containing the list of FORS BOM CSV files to process.</param>
+        /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+        /// <returns>A byte array representing the ZIP archive containing the generated IMDS CSV files.</returns>
+        /// <exception cref="CSVWorkerArgumentException">Thrown when the input model is missing or contains invalid CSV files.</exception>
         public async Task<byte[]> MultiForsBomToIMDS(MultiForsBomToIMDSBomVM model, CancellationToken cancellationToken)
         {
             _logger.LogDebug("MultiForsBomToIMDS started. CSV files count={CsvFilesCount}", model.CsvFiles?.Count() ?? 0);
@@ -66,7 +67,7 @@ namespace CSVWorker.Services
             // The ZIP file will contain one CSV file with the IMDS data, 
             // and if there are missing nodes, another CSV file with the missing nodes data.
             var zipStream = new MemoryStream();
-            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
+            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Update, true))
             {
 
                 /** Start processing FORS BOM files **/
@@ -84,11 +85,39 @@ namespace CSVWorker.Services
                     {
                         using (var reader = new StreamReader(stream))
                         {
+                            bool isValidForsBom = false;
                             // skip fist 12 (0 -> 11) lines of the file as they usually contain metadata and other non-tabular information,
                             // and the actual tabular data usually starts from line index 12 after the header "Partnumber;Description;...".
                             for (int i = 0; i < 12; i++)
                             {
-                                await reader.ReadLineAsync(cancellationToken);
+                                var l = await reader.ReadLineAsync(cancellationToken);
+                                if (l == null)
+                                {
+                                    // File has less than 12 lines, skipping this file as it's not in expected format.
+                                    _logger.LogDebug("File '{FileName}' has less than 12 lines. Skipping this file.", file.FileName);
+                                    isValidForsBom = false;
+                                    break;
+                                }
+                                var row = CsvHelper.ParseLine(l, ';');
+                                // check if it contains any metadata headers like "Plant", "List type", "Partnumber (from)", "Partnumber (to)", "Project no.", "Material class", "Price type", "Date of calculation"
+                                if (row != null && row.Length > 0 && (row[0].Contains("Plant", StringComparison.OrdinalIgnoreCase)
+                                    || row[0].Contains("List type", StringComparison.OrdinalIgnoreCase)
+                                    || row[0].Contains("Partnumber (from)", StringComparison.OrdinalIgnoreCase)
+                                    || row[0].Contains("Partnumber (to)", StringComparison.OrdinalIgnoreCase)
+                                    || row[0].Contains("Project no.", StringComparison.OrdinalIgnoreCase)
+                                    || row[0].Contains("Material class", StringComparison.OrdinalIgnoreCase)
+                                    || row[0].Contains("Price type", StringComparison.OrdinalIgnoreCase)
+                                    || row[0].Contains("Date of calculation", StringComparison.OrdinalIgnoreCase)))
+                                {
+                                    // This file has metadata headers, we can consider it a valid FORS BOM file and continue processing.
+                                    isValidForsBom = true;
+                                }
+                            }
+
+                            if (!isValidForsBom)
+                            {
+                                _logger.LogDebug("Invalid FORS BOM file {FileName}, skipping.", file.FileName);
+                                continue;
                             }
 
                             // 3. Read the file line by line asynchronously
@@ -236,6 +265,12 @@ namespace CSVWorker.Services
                     /** End processing FORS BOM files **/
                 }
 
+                // If archive is empty throw error
+                if (archive.Entries.Count == 0)
+                {
+                    throw new CSVWorkerArgumentException("No valid FORS BOM files found in the input. Please provide at least one valid FORS BOM CSV file.");
+                }
+
                 // If there are missing nodes, we add another entry 
                 // to the ZIP with the details of the missing nodes.
                 // The CSV file will be "missing_nodes.csv" 
@@ -264,27 +299,16 @@ namespace CSVWorker.Services
             return zipStream.ToArray();
         }
 
-        /// <summary>
-        /// Transforms IMDS BOM data into Porsche IMDS format and generates a ZIP file containing the output CSV files.
-        /// </summary>
-        /// <param name="model">The model containing the input CSV files and the Porsche database CSV file.</param>
-        /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
-        /// <returns>A byte array representing the ZIP file containing the transformed IMDS data and any missing articles.</returns>
-        /// <exception cref="CSVWorkerArgumentException">Thrown when the input is missing required CSV files.</exception>
-        /// <exception cref="CSVWorkerInvalidDataException">Thrown when the database file header is invalid or empty.</exception>
+
         public async Task<byte[]> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
         {
-            if (model.CsvFiles == null || !model.CsvFiles.Any() || model.DatabasePorscheCSV == null)
+            if (model.CsvFiles == null || !model.CsvFiles.Any())
             {
                 throw new CSVWorkerArgumentException("Input missing - please provide at least one FORS BOM CSV file and a Database CSV file.");
             }
 
-            _logger.LogDebug("IMDSBomToPorscheIMDS started. Database file={DatabaseFileName}, Number of IMDS BOM files={BOMFilesCount}", model.DatabasePorscheCSV.FileName, model.CsvFiles.Count());
+            _logger.LogDebug("IMDSBomToPorscheIMDS started. Number of IMDS BOM files={BOMFilesCount}", model.CsvFiles.Count());
 
-            // Porsche database indexes
-            int databasePartNumberIndex;
-            int databaseArticleNameIndex;
-            int databaseCrossSecIndex;
 
             // IMDS BOM indexes
             const int imdsPartNumberIndex = 1;
@@ -292,73 +316,6 @@ namespace CSVWorker.Services
             const int imdsWeightIndex = 4;
             const int imdsTypeIndex = 7;
             const int imdsNodeIdIndex = 8;
-
-            // Porsche IMDS CSV indexes
-            const int porscheIMDCrossSecIndex = 11;
-            const int porscheIMDSnotApplicableIndex = 30;
-            const int porscheIMDSDescriptionIndex = 2;
-            (int Row, int Column) porscheIMDSWeightTotalIndex = (2, 4);
-
-
-            /** Load Porsche Database **/
-            var database = new List<string[]>();
-            using (var stream = model.DatabasePorscheCSV.OpenReadStream())
-            {
-                using (var readerRaw = new StreamReader(stream))
-                {
-                    // Read the entire CSV content as a string.
-                    var csvString = await readerRaw.ReadToEndAsync(cancellationToken);
-
-                    // Normalize the CSV string to ensure no row is split into multiple lines
-                    // due to embedded line breaks within quoted fields.
-                    var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
-
-                    // Use StringReader to read the normalized CSV string line by line.
-                    using var reader = new StringReader(normalizedCsvString);
-
-                    /** Read header **/
-                    var headerLine = await reader.ReadLineAsync(cancellationToken);
-                    if (string.IsNullOrEmpty(headerLine))
-                    {
-                        throw new CSVWorkerInvalidDataException("Database file header is invalid or empty.");
-                    }
-
-                    // Detect delimiter (it is usually ';' but we want to be sure, and handle cases where it can be ',').
-                    var delimiter = CsvHelper.DetectDelimiter(headerLine);
-
-                    // split header line into columns
-                    var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
-                    if (headerRow == null || headerRow.Length == 0)
-                    {
-                        throw new CSVWorkerInvalidDataException("Database CSV file header is invalid or empty.");
-                    }
-
-
-                    // Get required column indexes by header names.
-                    databasePartNumberIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Item- /Mat.-No.", "PART/ITEM NO/", "PART/ITEM NO/.", "LEONI Part Number" });
-                    databaseArticleNameIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Article Name", "Description" });
-                    databaseCrossSecIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Cross-Sec (INDIV1)", "Cross-Sec" });
-
-                    /** Finish reading header **/
-
-                    // Read the file line by line asynchronously and add to database list
-                    string? line;
-                    while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
-                    {
-                        var row = CsvHelper.ParseLine(line, delimiter);
-                        if (row != null)
-                        {
-                            database.Add(row);
-                        }
-                    }
-                }
-            }
-
-            /** Finish loading Porsche Database **/
-
-            // Build a fast lookup dictionary for the database by part number,
-            // to be used later when processing the IMDS BOM files.
-            var databaseByPartNumber = CsvHelper.BuildFastLookupDictionary(database, databasePartNumberIndex);
 
             // Missing articles
             // Will be exported to "missing_articles.csv"
@@ -372,7 +329,7 @@ namespace CSVWorker.Services
             // The ZIP file will contain one CSV file with the IMDS data, 
             // and if there are missing nodes, another CSV file with the missing nodes data.
             var zipStream = new MemoryStream();
-            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Create, true))
+            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Update, true))
             {
                 /** Start processing IMDS BOM files **/
                 foreach (var file in model.CsvFiles)
@@ -383,7 +340,10 @@ namespace CSVWorker.Services
                     }
 
                     /** Parse IMDS BOM CSV **/
-                    var imdsCsvRows = new List<string[]>();
+                    var materials = new List<ImdsMaterial>();
+                    var productNumber = string.Empty;
+                    bool currentFileHasMissingArticles = false;
+
                     using (var stream = file.OpenReadStream())
                     {
                         using (var reader = new StreamReader(stream))
@@ -397,231 +357,143 @@ namespace CSVWorker.Services
                                 //File is empty. Skipping this file.
                                 continue;
                             }
-                            var delimiter = CsvHelper.DetectDelimiter(line, fallback: ',');
+                            var delimiter = CsvHelper.DetectDelimiter(line, fallback: ';');
 
-                            var frow = CsvHelper.ParseLine(line, delimiter);
-                            if (frow != null)
+                            // FIRST line has to be "MDS_BEGIN" in the first cell for the file to be considered a valid IMDS BOM file.
+                            var firstrow = CsvHelper.ParseLine(line, delimiter);
+                            if (firstrow == null || firstrow.Length == 0 || firstrow[0] != "MDS_BEGIN")
                             {
-                                IMDSHelper.ResizeAndFillRows(ref frow, 31);
-                                imdsCsvRows.Add(frow);
+                                _logger.LogDebug("File '{FileName}' is not a valid IMDS BOM file. First cell of the first line is not 'MDS_BEGIN'. Skipping this file.", file.FileName);
+                                continue;
                             }
 
+                            // Second line has the product number in the second cell
+                            var secondLine = await reader.ReadLineAsync(cancellationToken);
+                            if (secondLine == null)
+                            {
+                                continue;
+                            }
+                            var secondRow = CsvHelper.ParseLine(secondLine, delimiter);
+                            if (secondRow == null || secondRow.Length <= 2 || string.IsNullOrWhiteSpace(secondRow[1]))
+                            {
+                                continue;
+                            }
+
+                            productNumber = secondRow[1];
 
                             while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
                             {
                                 var row = CsvHelper.ParseLine(line, delimiter);
-                                if (row != null)
+                                if (row != null && (row[imdsTypeIndex] == "RS" || row[imdsTypeIndex] == "RC"))
                                 {
-                                    // Porsche IMDS BOM have 31 columns
-                                    IMDSHelper.ResizeAndFillRows(ref row, 31);
-                                    imdsCsvRows.Add(row);
-                                }
-                            }
-                        }
-                    }
-                    /** END Parse IMDS BOM CSV **/
-
-                    /** Validate IMDS BOM structure **/
-                    if (imdsCsvRows[0][0] != "MDS_BEGIN")
-                    {
-                        _logger.LogDebug("File {FileName} does not have valid IMDS BOM structure: first cell is not 'MDS_BEGIN'. Skipping this file.", file.FileName);
-                        continue;
-                    }
-
-                    if (imdsCsvRows.Count < 5)
-                    {
-                        _logger.LogDebug("File {FileName} does not have valid IMDS BOM structure: it has less than 5 rows. Skipping this file.", file.FileName);
-                        continue;
-                    }
-
-                    // Check if a row has #N/A as node ID
-                    // Skip file if it has missing nodes
-                    bool hasMissingNodes = false;
-                    foreach (var row in imdsCsvRows)
-                    {
-                        if (row[imdsNodeIdIndex] == "#N/A")
-                        {
-                            hasMissingNodes = true;
-                            break;
-                        }
-                    }
-
-                    if (hasMissingNodes)
-                    {
-                        _logger.LogDebug("File {FileName} has missing nodes (Node ID is #N/A in some rows). Skipping this file.", file.FileName);
-                        continue;
-                    }
-
-                    /** END validate IMDS BOM structure **/
-
-                    /** Trasnform to Porsche IMDS CSV **/
-
-                    // get the product number
-                    var productNumber = imdsCsvRows[2][0];
-
-                    bool currentFileHasMissingArticles = false;
-
-                    // Put cross-sec and article name for every row of type RS
-                    foreach (var row in imdsCsvRows)
-                    {
-                        // Semi-components (RS) have cross-sec in the database,
-                        // so we try to find it and add to the row, if type is RS.
-                        if (row[imdsTypeIndex] == "RS")
-                        {
-                            var partNumber = row[1];
-
-                            // Partnumber found in porsche database
-                            if (databaseByPartNumber.TryGetValue(partNumber, out var dbrow))
-                            {
-                                // Set description (if not found , set #N/A# to be able to identify missing articles later in the output)
-                                var articleName = dbrow[databaseArticleNameIndex];
-                                if (!string.IsNullOrEmpty(articleName))
-                                {
-                                    row[porscheIMDSDescriptionIndex] = articleName;
-                                }
-                                else
-                                {
-                                    if (!currentFileHasMissingArticles)
+                                    // Add to materials list
+                                    materials.Add(new ImdsMaterial
                                     {
-                                        currentFileHasMissingArticles = true;
-                                    }
-                                    missingArticles.Add([partNumber, "#N/A#"]);
-                                }
-
-                                // Set cross-sec (it will be removed later)
-                                row[porscheIMDCrossSecIndex] = dbrow[databaseCrossSecIndex]; // Cross-Sec column
-                            }
-                            else
-                            {
-                                currentFileHasMissingArticles = true;
-                                row[porscheIMDSDescriptionIndex] = "#N/A#";
-                                missingArticles.Add([partNumber, "#N/A#"]);
-                            }
-                        }
-                    }
-
-
-                    /** Weights aggregation based on cross-sec + remove duplicates **/
-
-                    /** 
-                     * We go for each row that has RS as type, 
-                     * look for other materials who have same cross-sec and aggregate the weights
-                     * remove those rows and keep only keep the first one with the same cross-sec
-                     * **/
-
-                    // First aggregate weights based on cross-sec
-                    var totalWeight = 0.0;
-                    var totalWeightbyCrossSec = new Dictionary<string, double>();
-                    foreach (var row in imdsCsvRows)
-                    {
-                        if (row[imdsTypeIndex] == "RS" && double.TryParse(row[imdsWeightIndex].Replace(',', '.'), out var weight))
-                        {
-                            var crossSec = row[porscheIMDCrossSecIndex];
-                            totalWeight += weight;
-
-                            if (string.IsNullOrEmpty(crossSec) || crossSec == "#N/A")
-                            {
-                                continue;
-                            }
-
-                            if (!totalWeightbyCrossSec.ContainsKey(crossSec))
-                            {
-                                totalWeightbyCrossSec[crossSec] = 0;
-                            }
-                            if (weight > 0.0)
-                            {
-                                totalWeightbyCrossSec[crossSec] += weight;
-                            }
-                        }
-                    }
-
-                    // set total weight in the specific cell for Porsche IMDS output
-                    imdsCsvRows[porscheIMDSWeightTotalIndex.Row][porscheIMDSWeightTotalIndex.Column] = totalWeight.ToString("F3");
-
-                    // Remove duplicates with same cross-sec, keep only first one, 
-                    // and assign the aggregated weight.
-                    var seenCrossSecs = new HashSet<string>();
-                    for (int i = 0; i < imdsCsvRows.Count; i++)
-                    {
-                        var row = imdsCsvRows[i];
-
-                        if (row[imdsTypeIndex] == "RS")
-                        {
-                            var crossSec = row[porscheIMDCrossSecIndex];
-
-                            // Skip if crossSec is #N/A or empty
-                            if (string.IsNullOrEmpty(crossSec) || crossSec == "#N/A")
-                            {
-                                continue;
-                            }
-
-                            // HashSet.Add returns true if it was added (first time seeing it), 
-                            // and false if it already exists (it's a duplicate)
-                            if (seenCrossSecs.Add(crossSec))
-                            {
-                                // Update its weight to the aggregated total we calculated earlier
-                                if (totalWeightbyCrossSec.TryGetValue(crossSec, out var totw))
-                                {
-                                    // Make sure it matches the IMDS comma-decimal format
-                                    row[imdsWeightIndex] = totw.ToString("F3");
+                                        PartNumber = row[imdsPartNumberIndex],
+                                        Quantity = (int)(double.TryParse(row[imdsQuantityIndex], out var quantity) ? quantity : 0),
+                                        Weight = double.TryParse(row[imdsWeightIndex], out var weight) ? weight : 0,
+                                        ComponentType = row[imdsTypeIndex],
+                                        NodeID = row[imdsNodeIdIndex]
+                                    });
                                 }
                             }
-                            else
-                            {
-                                // This is a duplicate. Remove it.
-                                imdsCsvRows.RemoveAt(i);
-
-                                // Decrement 'i' so we don't skip the next item that just shifted left into index 'i'
-                                i--;
-                            }
                         }
-                    }
+                        /** END Parse IMDS BOM CSV **/
 
-                    // remove all cross-sec for all RS rows
-                    foreach (var row in imdsCsvRows)
-                    {
-                        if (!string.IsNullOrEmpty(row[porscheIMDCrossSecIndex]))
+                        // Check if a material has NodeID = "#N/A" and skip file processing
+                        if (materials.Where(m => string.IsNullOrWhiteSpace(m.NodeID) || m.NodeID == "#N/A").Any())
                         {
-                            row[porscheIMDCrossSecIndex] = string.Empty;
+                            _logger.LogDebug("File {FileName} has missing Node(s). Skipping", file.FileName);
+                            continue;
                         }
                     }
 
-                    // duplicate RS rows
-                    // First one become C as type with 1 as quantity
-                    // second one becomes a child
-                    for (int i = 0; i < imdsCsvRows.Count; i++)
+                    /** Build IMDS **/
+
+                    // Get RS and RC materials for the current product number
+                    var rsMaterials = materials.Where(p => p.ComponentType == "RS").ToList();
+                    var rcMaterials = materials.Where(p => p.ComponentType == "RC").ToList();
+
+                    // Find Article name & Cross-Sec of each RS material
+                    foreach (var material in rsMaterials)
                     {
-                        var row = imdsCsvRows[i];
-                        if (row[imdsTypeIndex] == "RS")
+                        var article = await _porscheService.FindArticle(material.PartNumber);
+                        if (article != null && !string.IsNullOrWhiteSpace(article.ArticleName))
                         {
-                            var partnumber = row[imdsPartNumberIndex];
+                            material.ArticleName = article.ArticleName;
+                        }
+                        else
+                        {
+                            currentFileHasMissingArticles = true;
+                            missingArticles.Add([material.PartNumber, "#N/A"]);
+                        }
 
-                            // Duplicate the row
-                            var duplicatedRow = (string[])row.Clone();
-
-                            row[imdsTypeIndex] = "C";
-                            row[imdsQuantityIndex] = "1";
-                            row[imdsPartNumberIndex] = "_" + partnumber;
-                            row[imdsNodeIdIndex] = string.Empty;
-                            row[porscheIMDSnotApplicableIndex] = "NotApplicable";
-
-                            duplicatedRow[0] = "_" + partnumber;
-                            duplicatedRow[1] = partnumber;
-                            duplicatedRow[2] = partnumber;
-                            duplicatedRow[imdsQuantityIndex] = string.Empty;
-
-                            imdsCsvRows.Insert(i + 1, duplicatedRow);
-                            i++;
+                        if (article != null && !string.IsNullOrWhiteSpace(article.CrossSec))
+                        {
+                            material.CrossSec = article.CrossSec;
                         }
                     }
 
-                    // remove 3 rows before last row, they are not needed for Porsche IMDS and create issues in the output
-                    if (imdsCsvRows.Count > 5)
+                    var rsWithCross = rsMaterials
+                        .Where(m => !string.IsNullOrWhiteSpace(m.CrossSec))
+                        .ToList();
+
+                    var rsWithoutCross = rsMaterials
+                        .Where(m => string.IsNullOrWhiteSpace(m.CrossSec))
+                        .ToList();
+
+                    // Group rs Materials that have same CrossSec and sum their weights
+                    var groupedByCross = rsWithCross
+                        .GroupBy(m => m.CrossSec!.Trim().ToUpperInvariant())
+                        .Select(g => new ImdsMaterial
+                        {
+                            PartNumber = g.First().PartNumber,
+                            Quantity = g.Sum(m => m.Quantity),
+                            Weight = g.Sum(m => m.Weight),
+                            ComponentType = "RS",
+                            NodeID = g.First().NodeID,
+                            ArticleName = g.First().ArticleName,
+                            CrossSec = g.Key
+                        })
+                        .ToList();
+
+                    // Combine grouped (by CrossSec) and ungrouped (CrossSec null/empty) materials
+                    var groupedRsMaterials = groupedByCross
+                        .Concat(rsWithoutCross)
+                        .ToList();
+
+                    // Get total weight of all RS materials
+                    double totalWeight = groupedRsMaterials.Sum(m => m.Weight);
+
+                    // Beginning of IMDS
+                    var outputRows = new List<string[]>{
+                            (["MDS_BEGIN", "Datasheet", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,  string.Empty]),
+                            ([string.Empty, productNumber, productNumber, string.Empty, string.Empty, "g", "5", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty,  string.Empty]),
+                            ([productNumber, "CABLES & TAPES", "CABLES & TAPES", "1", totalWeight.ToString("F3"), "g", "5", "C", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]),
+                        };
+
+                    // RS materials output
+                    if (groupedRsMaterials != null && groupedRsMaterials.Count > 0)
                     {
-                        imdsCsvRows.RemoveAt(imdsCsvRows.Count - 2);
-                        imdsCsvRows.RemoveAt(imdsCsvRows.Count - 2);
-                        imdsCsvRows.RemoveAt(imdsCsvRows.Count - 2);
+                        foreach (var rsMat in groupedRsMaterials)
+                        {
+                            outputRows.Add(["CABLES & TAPES", $"_{rsMat.PartNumber}", rsMat.ArticleName, "1", rsMat.Weight.ToString("F3"), "g", string.Empty, "C", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, "NotApplicable"]);
+                            outputRows.Add([$"_{rsMat.PartNumber}", rsMat.PartNumber, rsMat.PartNumber, string.Empty, rsMat.Weight.ToString("F3"), "g", string.Empty, "RS", rsMat.NodeID, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
+                        }
                     }
+
+                    // RC materials output
+                    if (rcMaterials != null && rcMaterials.Count > 0)
+                    {
+                        foreach (var rcMat in rcMaterials)
+                        {
+                            outputRows.Add([productNumber, rcMat.PartNumber, rcMat.PartNumber, rcMat.Quantity.ToString(), string.Empty, string.Empty, string.Empty, "RC", rcMat.NodeID, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
+                        }
+                    }
+
+                    // MDS_END
+                    outputRows.Add(["MDS_END", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
+                    outputRows.Add(["END", string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty, string.Empty]);
 
                     var imdsFileName = $"{productNumber}_output.csv";
 
@@ -638,7 +510,7 @@ namespace CSVWorker.Services
                     {
                         // IMDS csv is commas separated.
                         // unlike FORS BOM input csv files which are semicolon separated.
-                        var imdsFileEntryOutputBytes = await CsvHelper.ConvertListToCsv(imdsCsvRows, ',', cancellationToken);
+                        var imdsFileEntryOutputBytes = await CsvHelper.ConvertListToCsv(outputRows, ';', cancellationToken);
                         await entryStream.WriteAsync(imdsFileEntryOutputBytes, cancellationToken);
                         await entryStream.FlushAsync(cancellationToken);
                     }
@@ -646,6 +518,12 @@ namespace CSVWorker.Services
                     /** END Transform to Porsche IMDS CSV **/
                 }
                 /** End processing IMDS BOM files **/
+
+                // If archive is empty throw error
+                if (archive.Entries.Count() == 0)
+                {
+                    throw new CSVWorkerArgumentException("No valid IMDS BOM files found in the input. Please provide at least one valid IMDS BOM CSV file that has no missing Nodes.");
+                }
 
                 // If there are missing articles, we add another entry 
                 // to the ZIP with the details of the missing articles.

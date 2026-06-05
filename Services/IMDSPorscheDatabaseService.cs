@@ -198,7 +198,7 @@ namespace CSVWorker.Services
                 _context.ChangeTracker.AutoDetectChangesEnabled = true;
             }
 
-            _logger.LogDebug("Update IMDS Database finished.");
+            _logger.LogDebug("UpdatePorscheDatabase finished.");
         }
 
         // Get by ID
@@ -230,8 +230,8 @@ namespace CSVWorker.Services
             return input;
         }
 
-        // Find Article Name by Part Number
-        public async Task<string?> FindArticleName(string partNumber)
+        // Find Article by Part Number
+        public async Task<IMDSPorscheDatabaseRecord?> FindArticle(string partNumber)
         {
             var found = await _context.IMDSPorscheDatabase
                 .OrderByDescending(p => p.LastUpdatedAt)
@@ -241,15 +241,15 @@ namespace CSVWorker.Services
                 ))
                 .FirstOrDefaultAsync();
 
-            if (found != null && !string.IsNullOrEmpty(found.ArticleName))
+            if (found != null)
             {
-                return found.ArticleName;
+                return found;
             }
 
             string trimmedPartNumber = RemoveTrailingLetters(partNumber);
             if (partNumber != trimmedPartNumber)
             {
-                return await FindArticleName(trimmedPartNumber);
+                return await FindArticle(trimmedPartNumber);
             }
             else
             {

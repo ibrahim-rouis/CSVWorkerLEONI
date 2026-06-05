@@ -19,15 +19,8 @@
                         <label class="form-label fs-5" asp-for="CsvFiles">
                             IMDS BOM Folder (Must contain IMDS BOM CSV files)
                         </label>
-                        <input asp-for="CsvFiles" type="file" class="form-control" multiple webkitdirectory directory
-                               accept=".csv,text/csv" />
+                        <input asp-for="CsvFiles" type="file" class="form-control" multiple accept=".csv,text/csv" />
                         <span asp-validation-for="CsvFiles" class="text-danger"></span>
-                    </div>
-                    <div class="mb-6">
-                        <label class="form-label fs-5" asp-for="DatabasePorscheCSV">Database Porsche CSV</label>
-                        <input asp-for="DatabasePorscheCSV" type="file" class="form-control" accept=".csv,text/csv"
-                               required />
-                        <span asp-validation-for="DatabasePorscheCSV" class="text-danger"></span>
                     </div>
                     <button type="submit" class="btn btn-primary btn-lg px-10">Start</button>
 
