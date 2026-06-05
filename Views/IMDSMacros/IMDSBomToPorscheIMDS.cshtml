@@ -17,7 +17,7 @@
                 <form asp-action="IMDSBomToPorscheIMDS" method="post" enctype="multipart/form-data" id="download-form">
                     <div class="mb-6">
                         <label class="form-label fs-5" asp-for="CsvFiles">
-                            IMDS BOM Folder (Must contain IMDS BOM CSV files)
+                            IMDS BOM CSV files
                         </label>
                         <input asp-for="CsvFiles" type="file" class="form-control" multiple accept=".csv,text/csv" />
                         <span asp-validation-for="CsvFiles" class="text-danger"></span>
