@@ -53,12 +53,14 @@ namespace CSVWorker.Services.LDAP
                 var adGroups = _ldapService.GetUserGroups(username);
 
                 // Updated cached roles list based on LDAP groups
-                if (adGroups != null)
+                if (adGroups != null && adGroups.Count > 0)
                 {
                     cachedRoleNames.AddRange(adGroups.Where(r => !string.IsNullOrEmpty(r)));
                 }
-                // In development mode only set any connected user as admin if LDAP is not configured or returns no groups.
-                else if (_env.IsDevelopment() && adGroups == null)
+                // In development mode only set any connected user as admin if no groups are returned from LDAP, 
+                // which allows development without LDAP configured. 
+                // In production, users with no LDAP groups will simply have no roles.
+                else if (_env.IsDevelopment())
                 {
                     cachedRoleNames.Add(Roles.Admin);
                 }
