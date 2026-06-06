@@ -23,12 +23,6 @@ namespace CSVWorker.Services.LDAP
             _env = env;
         }
 
-        private static string EscapeLdapFilter(string input)
-        {
-            return input.Replace("\\", "\\5c").Replace("*", "\\2a").Replace("(", "\\28").Replace(")", "\\29").Replace("\0", "\\00");
-        }
-
-
         public Task<ClaimsPrincipal> TransformAsync(ClaimsPrincipal principal)
         {
             var clone = principal.Clone();
@@ -37,7 +31,7 @@ namespace CSVWorker.Services.LDAP
             if (!newIdentity.IsAuthenticated || string.IsNullOrEmpty(newIdentity.Name))
                 return Task.FromResult(principal);
 
-            string username = EscapeLdapFilter(newIdentity.Name);
+            string username = newIdentity.Name;
 
             string cacheKey = $"UserRoles_{username}";
 

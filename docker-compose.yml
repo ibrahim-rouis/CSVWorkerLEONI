@@ -12,26 +12,10 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
       interval: 10s
       timeout: 5s
       retries: 5
-
-  # OpenLDAP for reliable local dev testing
-  openldap:
-    image: osixia/openldap:latest
-    container_name: openldap-ad-sim
-    environment:
-      LDAP_ORGANISATION: "LEONI"
-      LDAP_DOMAIN: "leoni.local"
-      LDAP_ADMIN_PASSWORD: "AdminPassword123!"
-      # Important to disable strict TLS for simple local testing
-      LDAP_TLS_VERIFY_CLIENT: "never"
-    ports:
-      - "389:389"
-    volumes:
-      - ldap-data:/var/lib/ldap
-      - ldap-config:/etc/ldap/slapd.d
 
 volumes:
   mysql-data:

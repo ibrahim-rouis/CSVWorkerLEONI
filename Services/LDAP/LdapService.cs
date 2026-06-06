@@ -1,7 +1,6 @@
 ﻿using CSVWorker.Configuration;
 using Microsoft.Extensions.Options;
 using System.DirectoryServices.Protocols;
-using System.Net;
 
 namespace CSVWorker.Services.LDAP
 {
@@ -9,18 +8,24 @@ namespace CSVWorker.Services.LDAP
     {
         private readonly LdapConfig _ldapConfig;
         private readonly ILogger<LdapService> _logger;
-        private readonly IWebHostEnvironment _env;
 
         // Inject IOptions<LdapConfig> here
-        public LdapService(IOptions<LdapConfig> ldapOptions, ILogger<LdapService> logger, IWebHostEnvironment env)
+        public LdapService(IOptions<LdapConfig> ldapOptions, ILogger<LdapService> logger)
         {
             _ldapConfig = ldapOptions.Value;
             _logger = logger;
-            _env = env;
+        }
+
+        // Used to escape special characters in LDAP filters to prevent injection attacks
+        private static string EscapeLdapFilter(string input)
+        {
+            return input.Replace("\\", "\\5c").Replace("*", "\\2a").Replace("(", "\\28").Replace(")", "\\29").Replace("\0", "\\00");
         }
 
         private string? GetUserDistinguishedName(LdapConnection connection, string username)
         {
+            username = EscapeLdapFilter(username);
+
             // Try to find user by userPrincipalName (UPN) or sAMAccountName
             string upn = $"{username}@{_ldapConfig.DomainName}";
             string filter = $"(|(userPrincipalName={upn})(sAMAccountName={username}))";
@@ -46,9 +51,7 @@ namespace CSVWorker.Services.LDAP
             {
                 var groups = new List<string>();
                 using var connection = CreateConnection();
-
-                var adminCreds = new NetworkCredential(_ldapConfig.AdminDn, _ldapConfig.AdminPassword);
-                connection.Bind(adminCreds);
+                connection.Bind();
 
                 var userDn = GetUserDistinguishedName(connection, username);
                 if (string.IsNullOrEmpty(userDn))
@@ -69,8 +72,20 @@ namespace CSVWorker.Services.LDAP
                 var response = (SearchResponse)connection.SendRequest(searchRequest);
                 foreach (SearchResultEntry entry in response.Entries)
                 {
-                    var cn = entry.Attributes["cn"]?[0]?.ToString();
-                    if (!string.IsNullOrEmpty(cn)) groups.Add(cn);
+                    // Safely check if the entry contains the "cn" attribute
+                    if (entry.Attributes.Contains("cn"))
+                    {
+                        var cnAttribute = entry.Attributes["cn"];
+                        // Check if the attribute actually has values
+                        if (cnAttribute.Count > 0)
+                        {
+                            var cn = cnAttribute[0]?.ToString();
+                            if (!string.IsNullOrEmpty(cn))
+                            {
+                                groups.Add(cn);
+                            }
+                        }
+                    }
                 }
 
                 return groups;
@@ -93,9 +108,7 @@ namespace CSVWorker.Services.LDAP
             {
                 var photoAttribName = _ldapConfig.PhotoAttribName ?? "thumbnailPhoto";
                 using var connection = CreateConnection();
-
-                var adminCreds = new NetworkCredential(_ldapConfig.AdminDn, _ldapConfig.AdminPassword);
-                connection.Bind(adminCreds);
+                connection.Bind();
 
                 var userDn = GetUserDistinguishedName(connection, username);
                 if (string.IsNullOrEmpty(userDn)) return null;
@@ -129,27 +142,11 @@ namespace CSVWorker.Services.LDAP
         /// <returns>A configured LdapConnection instance.</returns>
         private LdapConnection CreateConnection()
         {
-            var connection = new LdapConnection(new LdapDirectoryIdentifier(_ldapConfig.Server, _ldapConfig.Port));
+            var connection = new LdapConnection(new LdapDirectoryIdentifier(_ldapConfig.DomainName, _ldapConfig.Port));
 
             connection.SessionOptions.ProtocolVersion = 3;
             connection.SessionOptions.ReferralChasing = ReferralChasingOptions.None;
-
-            // Use SSL for LDAPS
-            if (_ldapConfig.UseSsl)
-            {
-                connection.SessionOptions.SecureSocketLayer = true;
-            }
-
-            // Map configured AuthType to AuthType enum
-            connection.AuthType = _ldapConfig.AuthType.ToLowerInvariant() switch
-            {
-                "negotiate" => AuthType.Negotiate,
-                "basic" => AuthType.Basic,
-                "ntlm" => AuthType.Ntlm,
-                "digest" => AuthType.Digest,
-                "external" => AuthType.External,
-                _ => AuthType.Negotiate,
-            };
+            connection.AuthType = AuthType.Negotiate;
 
             return connection;
         }
