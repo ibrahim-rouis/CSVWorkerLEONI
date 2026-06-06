@@ -94,11 +94,6 @@ namespace CSVWorker.Services.LDAP
                 var photoAttribName = _ldapConfig.PhotoAttribName ?? "thumbnailPhoto";
                 using var connection = CreateConnection();
 
-                if (connection.AuthType == AuthType.Basic && !_ldapConfig.UseSsl)
-                {
-                    _logger.LogWarning("Using Basic auth without SSL. Credentials will be sent in cleartext.");
-                }
-
                 var adminCreds = new NetworkCredential(_ldapConfig.AdminDn, _ldapConfig.AdminPassword);
                 connection.Bind(adminCreds);
 
@@ -155,14 +150,6 @@ namespace CSVWorker.Services.LDAP
                 "external" => AuthType.External,
                 _ => AuthType.Negotiate,
             };
-
-            // Just in case you changed auth type to Basic without SSL, log an error and abort to prevent credential leakage
-            // By default auth type is negotiate in appsettings.json
-            if (_env.IsProduction() && connection.AuthType == AuthType.Basic && !_ldapConfig.UseSsl)
-            {
-                _logger.LogError("Using Basic auth without SSL. Credentials will be sent in cleartext. Aborting operation.");
-                throw new InvalidOperationException("Basic authentication without SSL is not allowed due to security risks.");
-            }
 
             return connection;
         }
