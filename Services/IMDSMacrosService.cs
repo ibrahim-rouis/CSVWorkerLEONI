@@ -141,12 +141,12 @@ namespace CSVWorker.Services
 
                                     materials.Add(new ForsMaterial
                                     {
-                                        ProductNumber = row[forsBomProdNumberIndex],
-                                        PartNumber = row[forsBomPartNumberIndex],
-                                        MaterialClass = row[forsBomMaterialGroupIndex],
-                                        MU = row[forsBomMUIndex],
-                                        Quantity = double.TryParse(row[forsBomQuantityIndex].Replace(',', '.'), out var quantity) ? quantity : 0,
-                                        Weight = double.TryParse(row[forsBomWeightIndex].Replace(',', '.'), out var weight) ? weight * 1000 : 0 // convert weight from kg to g, as IMDS expects weight in grams
+                                        ProductNumber = row[forsBomProdNumberIndex].Trim(),
+                                        PartNumber = row[forsBomPartNumberIndex].Trim(),
+                                        MaterialClass = row[forsBomMaterialGroupIndex].Trim(),
+                                        MU = row[forsBomMUIndex].Trim(),
+                                        Quantity = (int)(double.TryParse(row[forsBomQuantityIndex].Trim().Replace(',', '.'), out var quantity) ? quantity : 0),
+                                        Weight = double.TryParse(row[forsBomWeightIndex].Trim().Replace(',', '.'), out var weight) ? weight * 1000 : 0 // convert weight from kg to g, as IMDS expects weight in grams
                                     });
                                 }
                             }
@@ -163,6 +163,53 @@ namespace CSVWorker.Services
                         // current file has missing nodes
                         bool currentFileHasMissingNodes = false;
 
+                        // materials for current product
+                        var productMaterials = materials.Where(m => m.ProductNumber == productNumber).ToList();
+
+                        // Get Node ID for materials
+                        foreach (var material in productMaterials)
+                        {
+                            material.NodeID = await _imdsService.FindNodeIDbyAny(material.PartNumber);
+
+                            // if nodeId is null (not found) add it to missing nodes list,
+                            // and mark that current file has missing nodes so we can indicate it in the generated file name later.
+                            if (material.NodeID == null)
+                            {
+                                if (!currentFileHasMissingNodes)
+                                {
+                                    currentFileHasMissingNodes = true;
+                                }
+                                missingNodes.Add([material.PartNumber, "#N/A"]);
+                            }
+                        }
+
+                        // Aggregate materials that have same non null node ID
+                        // - For materials that have a non-null NodeID we group by NodeID and sum Weight and Quantity.
+                        // - Materials without NodeID remain as individual entries (they will be exported with NodeID = "#N/A").
+                        var materialsWithNode = productMaterials
+                            .Where(m => !string.IsNullOrWhiteSpace(m.NodeID))
+                            .GroupBy(m => m.NodeID!.Trim())
+                            .Select(g => new ForsMaterial
+                            {
+                                ProductNumber = productNumber,
+                                PartNumber = g.First().PartNumber,
+                                MaterialClass = g.First().MaterialClass,
+                                MU = g.First().MU,
+                                NodeID = g.Key,
+                                Quantity = g.Sum(x => x.Quantity),
+                                Weight = g.Sum(x => x.Weight)
+                            }
+                            )
+                            .ToList();
+
+                        var materialsWithoutNode = productMaterials
+                            .Where(m => string.IsNullOrWhiteSpace(m.NodeID))
+                            .ToList();
+
+                        var aggregatedProductMaterials = materialsWithNode
+                            .Concat(materialsWithoutNode)
+                            .ToList();
+
                         // Build IMDS
 
                         // Beginning of IMDS is always the same, with only product number changing in the second row.
@@ -173,8 +220,8 @@ namespace CSVWorker.Services
                             };
 
                         // Get RS and RC materials for the current product number
-                        var rsMaterials = materials.Where(m => m.ProductNumber == productNumber && m.MU != "ST").ToList();
-                        var rcMaterials = materials.Where(m => m.ProductNumber == productNumber && m.MU == "ST").ToList();
+                        var rsMaterials = aggregatedProductMaterials.Where(m => m.MU != "ST").ToList();
+                        var rcMaterials = aggregatedProductMaterials.Where(m => m.MU == "ST").ToList();
 
 
                         // Add cables and tapes to IMDS output
@@ -182,21 +229,6 @@ namespace CSVWorker.Services
                         {
                             foreach (var material in rsMaterials)
                             {
-
-                                // Find Node ID for this part number from the Database
-                                material.NodeID = await _imdsService.FindNodeIDbyAny(material.PartNumber);
-
-                                // if nodeId is null (not found) add it to missing nodes list,
-                                // and mark that current file has missing nodes so we can indicate it in the generated file name later.
-                                if (material.NodeID == null)
-                                {
-                                    if (!currentFileHasMissingNodes)
-                                    {
-                                        currentFileHasMissingNodes = true;
-                                    }
-                                    missingNodes.Add([material.PartNumber, "#N/A"]);
-                                }
-
                                 // Append to IMDS output
                                 outputRow.Add(["CABLES & TAPES", material.PartNumber, material.PartNumber, string.Empty, material.Weight.ToString("F3"), "g", string.Empty, "RS", material.NodeID ?? "#N/A", string.Empty, string.Empty]);
                             }
@@ -207,19 +239,6 @@ namespace CSVWorker.Services
                         {
                             foreach (var material in rcMaterials)
                             {
-                                // Find Node ID for this part number from the Database
-                                material.NodeID = await _imdsService.FindNodeIDbyAny(material.PartNumber);
-
-                                // if nodeId is null (not found)
-                                if (material.NodeID == null)
-                                {
-                                    if (!currentFileHasMissingNodes)
-                                    {
-                                        currentFileHasMissingNodes = true;
-                                    }
-                                    missingNodes.Add([material.PartNumber, "#N/A"]);
-                                }
-
                                 int quantity = (int)material.Quantity;
 
                                 outputRow.Add([productNumber, material.PartNumber, material.PartNumber, quantity.ToString(), string.Empty, string.Empty, string.Empty, "RC", material.NodeID ?? "#N/A", string.Empty, string.Empty]);

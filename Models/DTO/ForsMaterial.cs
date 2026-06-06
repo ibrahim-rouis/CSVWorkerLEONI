@@ -7,7 +7,7 @@
 
         public required string MaterialClass { get; init; }
 
-        public double Quantity { get; init; }
+        public int Quantity { get; init; }
 
         public required string MU { get; init; }
 
