@@ -11,6 +11,8 @@
         public string AdminPassword { get; set; } = string.Empty;
         public string DomainName { get; set; } = string.Empty;
         public string PhotoAttribName { get; set; } = string.Empty;
-        public string GroupClass { get; set; } = string.Empty;
+        public string GroupClass { get; set; } = "group";
+        public bool UseSsl { get; set; } = true;
+        public string AuthType { get; set; } = "Negotiate";
     }
 }

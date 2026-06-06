@@ -1,7 +1,7 @@
-﻿using System.DirectoryServices.Protocols;
-using System.Net;
-using CSVWorker.Configuration;
+﻿using CSVWorker.Configuration;
 using Microsoft.Extensions.Options;
+using System.DirectoryServices.Protocols;
+using System.Net;
 
 namespace CSVWorker.Services.LDAP
 {
@@ -9,12 +9,30 @@ namespace CSVWorker.Services.LDAP
     {
         private readonly LdapConfig _ldapConfig;
         private readonly ILogger<LdapService> _logger;
+        private readonly IWebHostEnvironment _env;
 
         // Inject IOptions<LdapConfig> here
         public LdapService(IOptions<LdapConfig> ldapOptions, ILogger<LdapService> logger, IWebHostEnvironment env)
         {
             _ldapConfig = ldapOptions.Value;
             _logger = logger;
+            _env = env;
+        }
+
+        private string? GetUserDistinguishedName(LdapConnection connection, string username)
+        {
+            // Try to find user by userPrincipalName (UPN) or sAMAccountName
+            string upn = $"{username}@{_ldapConfig.DomainName}";
+            string filter = $"(|(userPrincipalName={upn})(sAMAccountName={username}))";
+            var req = new SearchRequest(
+                _ldapConfig.BaseDn,
+                filter,
+                SearchScope.Subtree,
+                new[] { "distinguishedName" });
+            var res = (SearchResponse)connection.SendRequest(req);
+            if (res.Entries.Count == 0) return null;
+            var dnAttr = res.Entries[0].Attributes["distinguishedName"];
+            return dnAttr?.Count > 0 ? dnAttr[0].ToString() : null;
         }
 
         /// <summary>
@@ -27,15 +45,18 @@ namespace CSVWorker.Services.LDAP
             try
             {
                 var groups = new List<string>();
-
                 using var connection = CreateConnection();
+
                 var adminCreds = new NetworkCredential(_ldapConfig.AdminDn, _ldapConfig.AdminPassword);
                 connection.Bind(adminCreds);
 
-                string userDn = BuildUserIdentity(username);
+                var userDn = GetUserDistinguishedName(connection, username);
+                if (string.IsNullOrEmpty(userDn))
+                {
+                    _logger.LogWarning("User DN not found for {Username}", username);
+                    return groups;
+                }
 
-                // Filter: Find groups where the current user is a 'member'
-                // For Active Directory: (objectClass=group)
                 string groupClass = _ldapConfig.GroupClass ?? "group";
                 string filter = $"(&(objectClass={groupClass})(member={userDn}))";
 
@@ -43,16 +64,15 @@ namespace CSVWorker.Services.LDAP
                     $"{_ldapConfig.GroupOu},{_ldapConfig.BaseDn}",
                     filter,
                     SearchScope.Subtree,
-                    new[] { "cn" } // We only need the Common Name (the group name)
-                );
+                    new[] { "cn" }); // We only need the Common Name (the group name)
 
                 var response = (SearchResponse)connection.SendRequest(searchRequest);
-
                 foreach (SearchResultEntry entry in response.Entries)
                 {
-                    var cn = entry.Attributes["cn"][0].ToString();
+                    var cn = entry.Attributes["cn"]?[0]?.ToString();
                     if (!string.IsNullOrEmpty(cn)) groups.Add(cn);
                 }
+
                 return groups;
             }
             catch (Exception ex)
@@ -73,10 +93,18 @@ namespace CSVWorker.Services.LDAP
             {
                 var photoAttribName = _ldapConfig.PhotoAttribName ?? "thumbnailPhoto";
                 using var connection = CreateConnection();
+
+                if (connection.AuthType == AuthType.Basic && !_ldapConfig.UseSsl)
+                {
+                    _logger.LogWarning("Using Basic auth without SSL. Credentials will be sent in cleartext.");
+                }
+
                 var adminCreds = new NetworkCredential(_ldapConfig.AdminDn, _ldapConfig.AdminPassword);
                 connection.Bind(adminCreds);
 
-                string userDn = BuildUserIdentity(username);
+                var userDn = GetUserDistinguishedName(connection, username);
+                if (string.IsNullOrEmpty(userDn)) return null;
+
                 var searchRequest = new SearchRequest(
                     userDn,
                     "(objectClass=*)",
@@ -84,6 +112,7 @@ namespace CSVWorker.Services.LDAP
                     new[] { photoAttribName });
 
                 var response = (SearchResponse)connection.SendRequest(searchRequest);
+                if (response.Entries.Count == 0) return null;
                 var entry = response.Entries[0];
 
                 if (entry.Attributes.Contains(photoAttribName))
@@ -92,8 +121,9 @@ namespace CSVWorker.Services.LDAP
                 }
                 return null;
             }
-            catch
+            catch (Exception ex)
             {
+                _logger.LogDebug(ex, "GetUserPhoto failed for {Username}", username);
                 return null;
             }
         }
@@ -108,20 +138,33 @@ namespace CSVWorker.Services.LDAP
 
             connection.SessionOptions.ProtocolVersion = 3;
             connection.SessionOptions.ReferralChasing = ReferralChasingOptions.None;
-            connection.AuthType = AuthType.Negotiate;
+
+            // Use SSL for LDAPS
+            if (_ldapConfig.UseSsl)
+            {
+                connection.SessionOptions.SecureSocketLayer = true;
+            }
+
+            // Map configured AuthType to AuthType enum
+            connection.AuthType = _ldapConfig.AuthType.ToLowerInvariant() switch
+            {
+                "negotiate" => AuthType.Negotiate,
+                "basic" => AuthType.Basic,
+                "ntlm" => AuthType.Ntlm,
+                "digest" => AuthType.Digest,
+                "external" => AuthType.External,
+                _ => AuthType.Negotiate,
+            };
+
+            // Just in case you changed auth type to Basic without SSL, log an error and abort to prevent credential leakage
+            // By default auth type is negotiate in appsettings.json
+            if (_env.IsProduction() && connection.AuthType == AuthType.Basic && !_ldapConfig.UseSsl)
+            {
+                _logger.LogError("Using Basic auth without SSL. Credentials will be sent in cleartext. Aborting operation.");
+                throw new InvalidOperationException("Basic authentication without SSL is not allowed due to security risks.");
+            }
 
             return connection;
-        }
-        
-        /// <summary>
-        /// Constructs a user principal name (UPN) by combining the specified username with the configured domain name.
-        /// </summary>
-        /// <param name="username">The username to include in the UPN.</param>
-        /// <returns>A string representing the user identity in UPN format.</returns>
-        private string BuildUserIdentity(string username)
-        {
-            // For Active Directory, we can use the UPN format (e.g., user@leoni.local)
-            return $"{username}@{_ldapConfig.DomainName}";
         }
     }
 }
