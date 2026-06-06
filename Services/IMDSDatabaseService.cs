@@ -354,7 +354,7 @@ namespace CSVWorker.Services
         }
 
         // Get by ID
-        public async Task<IMDSDatabaseRecord?> GetByIdAsync(int id)
+        public async Task<IMDSDatabaseRecord?> GetByIdAsync(long id)
         {
             return await _context.IMDSDatabase.FirstOrDefaultAsync(p => p.Id == id);
         }
@@ -453,6 +453,17 @@ namespace CSVWorker.Services
                 && p.SIGIPPN == record.SIGIPPN
                 && p.VisualPN == record.VisualPN
                 && p.WGK == record.WGK));
+        }
+
+        public async Task DeleteAsync(long id)
+        {
+            var record = await _context.IMDSDatabase.FindAsync(id);
+            if (record == null)
+            {
+                throw new CSVWorkerArgumentException($"Record with ID {id} not found for deletion.");
+            }
+            _context.IMDSDatabase.Remove(record);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<IMDSDatabaseRecord> UpdateAsync(IMDSDatabaseRecord record, string? username)

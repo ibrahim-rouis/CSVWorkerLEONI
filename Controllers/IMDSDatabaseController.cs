@@ -63,7 +63,7 @@ namespace CSVWorker.Controllers
         }
 
         [Authorize(Roles = Roles.AdminOrManager)]
-        public async Task<IActionResult> Edit(int id)
+        public async Task<IActionResult> Edit(long id)
         {
             _logger.LogInformation($"IMDSDatabase Edit page accessed by user {User.Identity?.Name} for record ID={id}.");
             var record = await _service.GetByIdAsync(id);
@@ -77,7 +77,7 @@ namespace CSVWorker.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = Roles.AdminOrManager)]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
+        public async Task<IActionResult> Edit(long id, [Bind("Id,PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
         {
             _logger.LogInformation($"IMDSDatabase Edit attempt by user {User.Identity?.Name} for record ID={id} with PartNumber={model.PartNumber}, ForsPN={model.ForsPN}, SIGIPPN={model.SIGIPPN}, VisualPN={model.VisualPN}, WGK={model.WGK}, NodeID={model.NodeID}.");
             if (id != model.Id)
@@ -152,7 +152,7 @@ namespace CSVWorker.Controllers
         }
 
         // details
-        public async Task<IActionResult> Details(int id)
+        public async Task<IActionResult> Details(long id)
         {
             _logger.LogInformation($"IMDSDatabase Details page accessed by user {User.Identity?.Name} for record ID={id}.");
             var record = await _service.GetByIdAsync(id);
@@ -162,6 +162,39 @@ namespace CSVWorker.Controllers
             }
 
             return View(record);
+        }
+
+        // delete
+        [Authorize(Roles = Roles.AdminOrManager)]
+        public async Task<IActionResult> Delete(long id)
+        {
+            _logger.LogInformation($"IMDSDatabase Delete page accessed by user {User.Identity?.Name} for record ID={id}.");
+            var record = await _service.GetByIdAsync(id);
+            if (record == null)
+            {
+                return NotFound();
+            }
+
+            return View(record);
+        }
+
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = Roles.AdminOrManager)]
+        public async Task<IActionResult> DeleteConfirmed(long id)
+        {
+            _logger.LogInformation($"IMDSDatabase Delete attempt by user {User.Identity?.Name} for record ID={id}.");
+            var record = await _service.GetByIdAsync(id);
+            if (record == null)
+            {
+                return NotFound();
+            }
+
+            await _service.DeleteAsync(id);
+
+            _logger.LogInformation($"IMDSDatabase record ID={id} deleted by user {User.Identity?.Name}.");
+
+            return RedirectToAction(nameof(Index));
         }
     }
 }

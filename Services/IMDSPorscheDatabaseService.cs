@@ -202,7 +202,7 @@ namespace CSVWorker.Services
         }
 
         // Get by ID
-        public async Task<IMDSPorscheDatabaseRecord?> GetByIdAsync(int id)
+        public async Task<IMDSPorscheDatabaseRecord?> GetByIdAsync(long id)
         {
             return await _context.IMDSPorscheDatabase.FirstOrDefaultAsync(p => p.Id == id);
         }
@@ -288,6 +288,17 @@ namespace CSVWorker.Services
         public async Task<bool> Exists(IMDSPorscheDatabaseRecord record)
         {
             return await _context.IMDSPorscheDatabase.AnyAsync(p => p.PartNumber == record.PartNumber);
+        }
+
+        public async Task DeleteAsync(long id)
+        {
+            var record = await _context.IMDSPorscheDatabase.FindAsync(id);
+            if (record == null)
+            {
+                throw new CSVWorkerArgumentException($"Record with ID {id} not found for deletion.");
+            }
+            _context.IMDSPorscheDatabase.Remove(record);
+            await _context.SaveChangesAsync();
         }
 
         public async Task<IMDSPorscheDatabaseRecord> UpdateAsync(IMDSPorscheDatabaseRecord record, string? username)

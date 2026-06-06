@@ -76,7 +76,7 @@ namespace CSVWorker.Controllers
         [HttpPost]
         [ValidateAntiForgeryToken]
         [Authorize(Roles = Roles.AdminOrManager)]
-        public async Task<IActionResult> Edit(int id, [Bind("Id,PartNumber,ArticleName,MaterialGroup,CrossSec")] IMDSPorscheDatabaseRecord model)
+        public async Task<IActionResult> Edit(long id, [Bind("Id,PartNumber,ArticleName,MaterialGroup,CrossSec")] IMDSPorscheDatabaseRecord model)
         {
             _logger.LogInformation($"IMDSPorscheDatabase Edit attempt by user {User.Identity?.Name} for record ID={id} with PartNumber={model.PartNumber}, ArticleName={model.ArticleName}, MaterialGroup={model.MaterialGroup}, CrossSec={model.CrossSec}.");
             if (id != model.Id)
@@ -145,7 +145,7 @@ namespace CSVWorker.Controllers
         }
 
         // details
-        public async Task<IActionResult> Details(int id)
+        public async Task<IActionResult> Details(long id)
         {
             _logger.LogInformation($"IMDSPorscheDatabase Details page accessed by user {User.Identity?.Name} for record ID {id}.");
             var record = await _service.GetByIdAsync(id);
@@ -155,6 +155,39 @@ namespace CSVWorker.Controllers
             }
 
             return View(record);
+        }
+
+        // delete
+        [Authorize(Roles = Roles.AdminOrManager)]
+        public async Task<IActionResult> Delete(long id)
+        {
+            _logger.LogInformation($"IMDSPorscheDatabase Delete page accessed by user {User.Identity?.Name} for record ID={id}.");
+            var record = await _service.GetByIdAsync(id);
+            if (record == null)
+            {
+                return NotFound();
+            }
+
+            return View(record);
+        }
+
+        [HttpPost, ActionName("Delete")]
+        [ValidateAntiForgeryToken]
+        [Authorize(Roles = Roles.AdminOrManager)]
+        public async Task<IActionResult> DeleteConfirmed(long id)
+        {
+            _logger.LogInformation($"IMDSPorscheDatabase Delete attempt by user {User.Identity?.Name} for record ID={id}.");
+            var record = await _service.GetByIdAsync(id);
+            if (record == null)
+            {
+                return NotFound();
+            }
+
+            await _service.DeleteAsync(id);
+
+            _logger.LogInformation($"IMDSPorscheDatabase record ID={id} deleted by user {User.Identity?.Name}.");
+
+            return RedirectToAction(nameof(Index));
         }
     }
 }
