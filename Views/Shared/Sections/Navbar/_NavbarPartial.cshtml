@@ -1,12 +1,16 @@
 @* ! Brand demo (display only for navbar-full and hide on below xl) *@
 
 @using System.Security.Claims
+@using CSVWorker.Security
 
 @{
-    // Get all role claims for the current user
+    // Only the groups your app cares about
+    var appRoleGroups = new[] { Roles.AdminGroupName, Roles.ManagerGroupName };
+
+    // Friendly display names (strip the "LEONI\" prefix)
     var roles = User.Claims
-        .Where(c => c.Type == ClaimTypes.Role)
-        .Select(c => c.Value)
+        .Where(c => c.Type == ClaimTypes.Role && appRoleGroups.Contains(c.Value))
+        .Select(c => c.Value.Contains('\\') ? c.Value.Split('\\')[1] : c.Value)
         .ToList();
 
     // Show only the main role (first role), or "No roles" if none
