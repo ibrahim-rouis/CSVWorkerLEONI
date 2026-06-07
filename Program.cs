@@ -39,9 +39,6 @@ builder.Services.AddControllersWithViews();
 
 /* ************* Services ***************** */
 
-// Cache is used for caching LDAP roles
-builder.Services.AddMemoryCache();
-
 // IMDS Services
 builder.Services.AddScoped<IMDSMacrosService>();
 builder.Services.AddScoped<IMDSDatabaseService>();

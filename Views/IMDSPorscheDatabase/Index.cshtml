@@ -1,5 +1,4 @@
 ﻿@using CSVWorker.Models.Entities
-@using System.Text.Json
 @using CSVWorker.Security
 @inject Microsoft.AspNetCore.Authorization.IAuthorizationService AuthorizationService
 
@@ -36,7 +35,7 @@
 }
 
 <!-- Menu -->
-@if ((await AuthorizationService.AuthorizeAsync(User, null, "AdminOrManager")).Succeeded)
+@if ((await AuthorizationService.AuthorizeAsync(User, null, Policies.AdminOrManagerPolicy)).Succeeded)
 {
     <div class="card-body mb-3">
         <a asp-action="Create" class="btn rounded-pill btn-primary">Add new record</a>
@@ -52,8 +51,8 @@
             <div class="row g-3 align-items-end">
                 <div class="col-md-2">
                     <label class="form-label"><i class="fas fa-search"></i> Search</label>
-                    <input type="text" name="query" class="form-control form-control-sm"
-                           placeholder="Search..." value="@ViewData["query"]" />
+                    <input type="text" name="query" class="form-control form-control-sm" placeholder="Search..."
+                           value="@ViewData["query"]" />
                 </div>
                 <div class="col-auto d-flex justify-content-end">
                     <button type="submit" class="btn btn-icon rounded-pill btn-primary me-2" title="Search">
@@ -90,18 +89,21 @@
                         <td>@item.MaterialGroup</td>
                         <td>@item.CrossSec</td>
                         <td>
-                            <a class="btn btn-icon btn-primary mx-1" asp-action="Details" asp-route-id="@item.Id" title="Details">
+                            <a class="btn btn-icon btn-primary mx-1" asp-action="Details" asp-route-id="@item.Id"
+                               title="Details">
                                 <span class="icon-base bx bx-info-circle icon-md text-white"></span>
                             </a>
-                        @if ((await AuthorizationService.AuthorizeAsync(User, null, "AdminOrManager")).Succeeded)
-                        {
-                            <a class="btn btn-icon btn-warning mx-1" asp-action="Edit" asp-route-id="@item.Id" title="Edit">
+                            @if ((await AuthorizationService.AuthorizeAsync(User, null,
+                        Policies.AdminOrManagerPolicy)).Succeeded)
+                            {
+                                <a class="btn btn-icon btn-warning mx-1" asp-action="Edit" asp-route-id="@item.Id" title="Edit">
                                     <span class="icon-base bx bx-edit-alt icon-md text-white"></span>
-                            </a>
-                            <a class="btn btn-icon btn-danger mx-1" asp-action="Delete" asp-route-id="@item.Id" title="Delete">
-                                <span class="icon-base bx bx-trash-alt icon-md text-white"></span>
-                            </a>
-                        }
+                                </a>
+                                <a class="btn btn-icon btn-danger mx-1" asp-action="Delete" asp-route-id="@item.Id"
+                                   title="Delete">
+                                    <span class="icon-base bx bx-trash-alt icon-md text-white"></span>
+                                </a>
+                            }
                         </td>
                     </tr>
                 }
@@ -116,57 +118,61 @@
         @if (Model.HasPreviousPage)
         {
             <li class="page-item first">
-                <a class="page-link" asp-action="Index" asp-route-pageNumber="1" asp-route-query="@query"><i class="icon-base bx bx-chevrons-left icon-sm"></i></a>
-            </li>
-            <li class="page-item prev">
-                <a class="page-link" asp-action="Index" asp-route-pageNumber="@(currentPage - 1)" asp-route-query="@query"><i class="icon-base bx bx-chevron-left icon-sm"></i></a>
-            </li>
-        }
-        else
-        {
-            <li class="page-item first disabled">
-                <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevrons-left icon-sm"></i></a>
-            </li>
-            <li class="page-item prev disabled">
-                <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevron-left icon-sm"></i></a>
-            </li>
-        }
-
-        @for (int i = startPage; i <= endPage; i++)
-        {
-            @if (i == currentPage)
-            {
-                <li class="page-item active">
-                    <a class="page-link" href="javascript:void(0);">@i</a>
+                <a class="page-link" asp-action="Index" asp-route-pageNumber="1" asp-route-query="@query"><i
+                    class="icon-base bx bx-chevrons-left icon-sm"></i></a>
+                </li>
+                <li class="page-item prev">
+                    <a class="page-link" asp-action="Index" asp-route-pageNumber="@(currentPage - 1)"
+                       asp-route-query="@query"><i class="icon-base bx bx-chevron-left icon-sm"></i></a>
                 </li>
             }
-            else
+        else
             {
-                <li class="page-item">
-                    <a class="page-link" asp-action="Index" asp-route-pageNumber="@i" asp-route-query="@query">@i</a>
+                <li class="page-item first disabled">
+                    <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevrons-left icon-sm"></i></a>
+                </li>
+                <li class="page-item prev disabled">
+                    <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevron-left icon-sm"></i></a>
                 </li>
             }
-        }
 
-        @if (Model.HasNextPage)
-        {
-            <li class="page-item next">
-                <a class="page-link" asp-action="Index" asp-route-pageNumber="@(currentPage + 1)" asp-route-query="@query"><i class="icon-base bx bx-chevron-right icon-sm"></i></a>
-            </li>
-            <li class="page-item last">
-                <a class="page-link" asp-action="Index" asp-route-pageNumber="@(totalPages)" asp-route-query="@query"><i class="icon-base bx bx-chevrons-right icon-sm"></i></a>
-            </li>
-        }
+            @for (int i = startPage; i <= endPage; i++)
+            {
+                @if (i == currentPage)
+                {
+                    <li class="page-item active">
+                        <a class="page-link" href="javascript:void(0);">@i</a>
+                    </li>
+                }
+                else
+                {
+                    <li class="page-item">
+                        <a class="page-link" asp-action="Index" asp-route-pageNumber="@i" asp-route-query="@query">@i</a>
+                    </li>
+                }
+            }
+
+            @if (Model.HasNextPage)
+            {
+                <li class="page-item next">
+                    <a class="page-link" asp-action="Index" asp-route-pageNumber="@(currentPage + 1)"
+                       asp-route-query="@query"><i class="icon-base bx bx-chevron-right icon-sm"></i></a>
+                </li>
+                <li class="page-item last">
+                    <a class="page-link" asp-action="Index" asp-route-pageNumber="@(totalPages)" asp-route-query="@query"><i
+                        class="icon-base bx bx-chevrons-right icon-sm"></i></a>
+                    </li>
+                }
         else
-        {
-            <li class="page-item next disabled">
-                <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevron-right icon-sm"></i></a>
-            </li>
-            <li class="page-item last disabled">
-                <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevrons-right icon-sm"></i></a>
-            </li>
-        }
-    </ul>
-</nav>
-<!--/ Basic Pagination -->
-<!--/ Basic Bootstrap Table -->
+                {
+                    <li class="page-item next disabled">
+                        <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevron-right icon-sm"></i></a>
+                    </li>
+                    <li class="page-item last disabled">
+                        <a class="page-link" href="javascript:void(0);"><i class="icon-base bx bx-chevrons-right icon-sm"></i></a>
+                    </li>
+                }
+            </ul>
+        </nav>
+        <!--/ Basic Pagination -->
+        <!--/ Basic Bootstrap Table -->

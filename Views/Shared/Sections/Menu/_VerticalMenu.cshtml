@@ -32,7 +32,7 @@
     @* ! menu-items *@
     <ul class="menu-inner py-1">
 
-        @if ((await AuthorizationService.AuthorizeAsync(User, null, "Admin")).Succeeded)
+        @if ((await AuthorizationService.AuthorizeAsync(User, null, Policies.AdminPolicy)).Succeeded)
         {
             <!-- Misc -->
             <li class="menu-header small text-uppercase"><span class="menu-header-text">Admin</span></li>
@@ -88,10 +88,6 @@
         </li>
 
         <!--/ Macros -->
-   
-     
-       
-        
     </ul>
 
 </aside>
