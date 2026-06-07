@@ -1,6 +1,7 @@
 ﻿@using CSVWorker.Models.Entities
 @using System.Text.Json
 @using CSVWorker.Security
+@inject Microsoft.AspNetCore.Authorization.IAuthorizationService AuthorizationService
 
 @model PagedResult<IMDSDatabaseRecord>
 
@@ -35,7 +36,7 @@
 }
 
 <!-- Menu -->
-@if (User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager))
+@if ((await AuthorizationService.AuthorizeAsync(User, null, "AdminOrManager")).Succeeded)
 {
     <div class="card-body mb-3">
         <a asp-action="Create" class="btn rounded-pill btn-primary">Add new record</a>
@@ -97,7 +98,7 @@
                             <a class="btn btn-icon btn-primary mx-1" asp-action="Details" asp-route-id="@item.Id" title="Details">
                                 <span class="icon-base bx bx-info-circle icon-md text-white"></span>
                             </a>
-                        @if (User.IsInRole(Roles.Admin) || User.IsInRole(Roles.Manager))
+                        @if ((await AuthorizationService.AuthorizeAsync(User, null, "AdminOrManager")).Succeeded)
                         {
                             <a class="btn btn-icon btn-warning mx-1" asp-action="Edit" asp-route-id="@item.Id" title="Edit">
                                     <span class="icon-base bx bx-edit-alt icon-md text-white"></span>

@@ -1,10 +1,8 @@
 using CSVWorker.Configuration;
 using CSVWorker.Models;
+using CSVWorker.Security;
 using CSVWorker.Services;
-using CSVWorker.Services.LDAP;
-using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
-using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
@@ -41,14 +39,8 @@ builder.Services.AddControllersWithViews();
 
 /* ************* Services ***************** */
 
-// LDAP
-builder.Services.AddScoped<LdapService>(); // Your helper for LDAP
-
 // Cache is used for caching LDAP roles
 builder.Services.AddMemoryCache();
-
-// ClaimsTransformation fetched user roles through LDAP and add them to user roles claims
-builder.Services.AddTransient<IClaimsTransformation, LdapClaimsTransformer>();
 
 // IMDS Services
 builder.Services.AddScoped<IMDSMacrosService>();
@@ -64,28 +56,36 @@ builder.Services.AddScoped<LogViewerService>();
 // Bind CsvWorkerConfig from appsettings.json to the CsvWorkerConfig class and make it available for injection
 builder.Services.Configure<CSVWorkerConfig>(builder.Configuration.GetSection("CsvWorkerConfig"));
 
-// Bind LdapConfig from appsettings.json
-builder.Services.Configure<LdapConfig>(builder.Configuration.GetSection("LdapConfig"));
-
 /* ************* Authentication Setup  ***************** */
 
-var authBuilder = builder.Services.AddAuthentication(options =>
+builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
+   .AddNegotiate();
+
+
+// In production, enforce role-based authorization. 
+if (!builder.Environment.IsDevelopment())
 {
-    options.DefaultScheme = NegotiateDefaults.AuthenticationScheme;
-    options.DefaultAuthenticateScheme = NegotiateDefaults.AuthenticationScheme;
-    options.DefaultChallengeScheme = NegotiateDefaults.AuthenticationScheme;
-});
-authBuilder.AddNegotiate();
+    builder.Services.AddAuthorization(options =>
+    {
+        options.FallbackPolicy = options.DefaultPolicy;
+        options.AddPolicy(Policies.AdminPolicy, p => p.RequireRole(Roles.AdminGroupName));
+        options.AddPolicy(Policies.ManagerPolicy, p => p.RequireRole(Roles.ManagerGroupName));
+        options.AddPolicy(Policies.AdminOrManagerPolicy, p => p.RequireRole(Roles.AdminGroupName, Roles.ManagerGroupName));
+    });
+}
+// In development, allow user without roles to access everything in policies
+else
+{
+    builder.Services.AddAuthorization(options =>
+    {
+        options.FallbackPolicy = options.DefaultPolicy;
+        options.AddPolicy(Policies.AdminPolicy, p => p.RequireAssertion(_ => true));
+        options.AddPolicy(Policies.ManagerPolicy, p => p.RequireAssertion(_ => true));
+        options.AddPolicy(Policies.AdminOrManagerPolicy, p => p.RequireAssertion(_ => true));
+    });
+}
 
 /* **************************************************** */
-
-builder.Services.AddAuthorization(options =>
-{
-    // Require authenticated user for all endpoints by default
-    options.FallbackPolicy = new AuthorizationPolicyBuilder()
-         .RequireAuthenticatedUser()
-         .Build();
-});
 
 var app = builder.Build();
 

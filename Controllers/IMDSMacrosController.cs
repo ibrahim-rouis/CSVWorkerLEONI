@@ -25,7 +25,7 @@ namespace CSVWorker.Controllers
 
         public IActionResult MultiForsBomToIMDS()
         {
-            _logger.LogInformation($"MultiForsBomToIMDS page accessed by user {User.Identity?.Name}.");
+            _logger.LogInformation("MultiForsBomToIMDS page accessed by user {Name}.", User.Identity?.Name);
             return View(new MultiForsBomToIMDSBomVM());
         }
 
@@ -33,7 +33,7 @@ namespace CSVWorker.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> MultiForsBomToIMDS(MultiForsBomToIMDSBomVM model, CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"POST action sent by user {User.Identity?.Name} to MultiForsBomToIMDS.");
+            _logger.LogInformation("POST action sent by user {Name} to MultiForsBomToIMDS.", User.Identity?.Name);
             if (!ModelState.IsValid)
             {
                 model.ErrorMessage = "Please fill all required fields.";
@@ -72,7 +72,7 @@ namespace CSVWorker.Controllers
 
         public IActionResult IMDSBomToPorscheIMDS()
         {
-            _logger.LogInformation($"IMDSBomToPorscheIMDS page accessed by user {User.Identity?.Name}.");
+            _logger.LogInformation("IMDSBomToPorscheIMDS page accessed by user {Name}.", User.Identity?.Name);
             return View(new IMDSBomToPorscheIMDS());
         }
 
@@ -80,7 +80,7 @@ namespace CSVWorker.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"POST action sent by user {User.Identity?.Name} to IMDSBomToPorscheIMDS.");
+            _logger.LogInformation("POST action sent by user {Name} to IMDSBomToPorscheIMDS.", User.Identity?.Name);
 
             if (!ModelState.IsValid)
             {

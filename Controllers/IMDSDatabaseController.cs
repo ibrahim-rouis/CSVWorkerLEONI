@@ -22,7 +22,7 @@ namespace CSVWorker.Controllers
 
         public async Task<IActionResult> Index(int? pageNumber, string? query)
         {
-            _logger.LogInformation($"IMDSDatabase Index page accessed by user {User.Identity?.Name} with pageNumber={pageNumber} and query={query}.");
+            _logger.LogInformation("IMDSDatabase Index page accessed by user {Name} with pageNumber={pageNumber} and query={query}.", User.Identity?.Name, pageNumber, query);
 
             var model = await _service.GetPagedAsync(pageNumber, query);
 
@@ -31,19 +31,19 @@ namespace CSVWorker.Controllers
             return View(model);
         }
 
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public IActionResult Create()
         {
-            _logger.LogInformation($"IMDSDatabase Create page accessed by user {User.Identity?.Name}.");
+            _logger.LogInformation("IMDSDatabase Create page accessed by user {Name}.", User.Identity?.Name);
             return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> Create([Bind("PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
         {
-            _logger.LogInformation($"IMDSDatabase Create attempt by user {User.Identity?.Name} with PartNumber={model.PartNumber}, ForsPN={model.ForsPN}, SIGIPPN={model.SIGIPPN}, VisualPN={model.VisualPN}, WGK={model.WGK}, NodeID={model.NodeID}.");
+            _logger.LogInformation("IMDSDatabase Create attempt by user {Name} with PartNumber={PartNumber}, ForsPN={ForsPN}, SIGIPPN={SIGIPPN}, VisualPN={VisualPN}, WGK={WGK}, NodeID={NodeID}.", User.Identity?.Name, model.PartNumber, model.ForsPN, model.SIGIPPN, model.VisualPN, model.WGK, model.NodeID);
             if (!ModelState.IsValid)
             {
                 return View(model);
@@ -62,10 +62,10 @@ namespace CSVWorker.Controllers
             }
         }
 
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> Edit(long id)
         {
-            _logger.LogInformation($"IMDSDatabase Edit page accessed by user {User.Identity?.Name} for record ID={id}.");
+            _logger.LogInformation("IMDSDatabase Edit page accessed by user {Name} for record ID={id}.", User.Identity?.Name, id);
             var record = await _service.GetByIdAsync(id);
             if (record == null)
             {
@@ -76,10 +76,10 @@ namespace CSVWorker.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> Edit(long id, [Bind("Id,PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
         {
-            _logger.LogInformation($"IMDSDatabase Edit attempt by user {User.Identity?.Name} for record ID={id} with PartNumber={model.PartNumber}, ForsPN={model.ForsPN}, SIGIPPN={model.SIGIPPN}, VisualPN={model.VisualPN}, WGK={model.WGK}, NodeID={model.NodeID}.");
+            _logger.LogInformation("IMDSDatabase Edit attempt by user {Name} for record ID={id} with PartNumber={PartNumber}, ForsPN={ForsPN}, SIGIPPN={SIGIPPN}, VisualPN={VisualPN}, WGK={WGK}, NodeID={NodeID}.", User.Identity?.Name, id, model.PartNumber, model.ForsPN, model.SIGIPPN, model.VisualPN, model.WGK, model.NodeID);
             if (id != model.Id)
             {
                 return BadRequest();
@@ -103,10 +103,10 @@ namespace CSVWorker.Controllers
             }
         }
 
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public IActionResult UpdateDatabase()
         {
-            _logger.LogInformation($"IMDSDatabase UpdateDatabase page accessed by user {User.Identity?.Name}.");
+            _logger.LogInformation("IMDSDatabase UpdateDatabase page accessed by user {Name}.", User.Identity?.Name);
             return View(new UpdateDatabaseVM());
         }
 
@@ -116,10 +116,10 @@ namespace CSVWorker.Controllers
         [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> UpdateDatabase(UpdateDatabaseVM model, CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"IMDSDatabase UpdateDatabase attempt by user {User.Identity?.Name} with LPCPFile={model.LPCPFile?.FileName}, A2File={model.A2File?.FileName}.");
+            _logger.LogInformation("IMDSDatabase UpdateDatabase attempt by user {Name} with LPCPFile={LPCPFile}, A2File={A2File}.", User.Identity?.Name, model.LPCPFile?.FileName, model.A2File?.FileName);
             if (!ModelState.IsValid)
             {
                 model.ErrorMessage = "Please fill all required fields.";
@@ -154,7 +154,7 @@ namespace CSVWorker.Controllers
         // details
         public async Task<IActionResult> Details(long id)
         {
-            _logger.LogInformation($"IMDSDatabase Details page accessed by user {User.Identity?.Name} for record ID={id}.");
+            _logger.LogInformation("IMDSDatabase Details page accessed by user {Name} for record ID={id}.", User.Identity?.Name, id);
             var record = await _service.GetByIdAsync(id);
             if (record == null)
             {
@@ -165,10 +165,10 @@ namespace CSVWorker.Controllers
         }
 
         // delete
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> Delete(long id)
         {
-            _logger.LogInformation($"IMDSDatabase Delete page accessed by user {User.Identity?.Name} for record ID={id}.");
+            _logger.LogInformation("IMDSDatabase Delete page accessed by user {Name} for record ID={id}.", User.Identity?.Name, id);
             var record = await _service.GetByIdAsync(id);
             if (record == null)
             {
@@ -180,10 +180,10 @@ namespace CSVWorker.Controllers
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> DeleteConfirmed(long id)
         {
-            _logger.LogInformation($"IMDSDatabase Delete attempt by user {User.Identity?.Name} for record ID={id}.");
+            _logger.LogInformation("IMDSDatabase Delete attempt by user {Name} for record ID={id}.", User.Identity?.Name, id);
             var record = await _service.GetByIdAsync(id);
             if (record == null)
             {
@@ -192,7 +192,7 @@ namespace CSVWorker.Controllers
 
             await _service.DeleteAsync(id);
 
-            _logger.LogInformation($"IMDSDatabase record ID={id} deleted by user {User.Identity?.Name}.");
+            _logger.LogInformation("IMDSDatabase record ID={id} deleted by user {Name}.", id, User.Identity?.Name);
 
             return RedirectToAction(nameof(Index));
         }

@@ -1,4 +1,5 @@
 @using CSVWorker.Security
+@inject Microsoft.AspNetCore.Authorization.IAuthorizationService AuthorizationService
 
 @{
     TempData.Keep();
@@ -31,7 +32,7 @@
     @* ! menu-items *@
     <ul class="menu-inner py-1">
 
-        @if (User.IsInRole(Roles.Admin))
+        @if ((await AuthorizationService.AuthorizeAsync(User, null, "Admin")).Succeeded)
         {
             <!-- Misc -->
             <li class="menu-header small text-uppercase"><span class="menu-header-text">Admin</span></li>

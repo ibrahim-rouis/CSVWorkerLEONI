@@ -2,8 +2,10 @@
 {
     public static class Roles
     {
-        public const string Admin = "IT_Admin";
-        public const string Manager = "MaterialComplianceGroupName";
-        public const string AdminOrManager = $"{Admin},{Manager}";
+        // Admin group in AD
+        public const string AdminGroupName = @"LEONI\IT_Admin";
+
+        // Material Compliance group in AD
+        public const string ManagerGroupName = @"LEONI\IT_COMPLIANCE";
     }
 }

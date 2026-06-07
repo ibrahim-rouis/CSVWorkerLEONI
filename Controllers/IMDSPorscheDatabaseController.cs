@@ -22,7 +22,7 @@ namespace CSVWorker.Controllers
 
         public async Task<IActionResult> Index(int? pageNumber, string? query)
         {
-            _logger.LogInformation($"IMDSPorscheDatabase Index page accessed by user {User.Identity?.Name} with pageNumber={pageNumber} and query={query}.");
+            _logger.LogInformation("IMDSPorscheDatabase Index page accessed by user {Name} with pageNumber={pageNumber} and query={query}.", User.Identity?.Name, pageNumber, query);
             var model = await _service.GetPagedAsync(pageNumber, query);
 
             ViewData["query"] = query ?? "";
@@ -30,19 +30,19 @@ namespace CSVWorker.Controllers
             return View(model);
         }
 
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public IActionResult Create()
         {
-            _logger.LogInformation($"IMDSPorscheDatabase Create page accessed by user {User.Identity?.Name}.");
+            _logger.LogInformation("IMDSPorscheDatabase Create page accessed by user {Name}.", User.Identity?.Name);
             return View();
         }
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> Create([Bind("PartNumber,ArticleName,MaterialGroup,CrossSec")] IMDSPorscheDatabaseRecord model)
         {
-            _logger.LogInformation($"IMDSPorscheDatabase Create attempt by user {User.Identity?.Name} with PartNumber={model.PartNumber}, ArticleName={model.ArticleName}, MaterialGroup={model.MaterialGroup}, CrossSec={model.CrossSec}.");
+            _logger.LogInformation("IMDSPorscheDatabase Create attempt by user {Name} with PartNumber={PartNumber}, ArticleName={ArticleName}, MaterialGroup={MaterialGroup}, CrossSec={CrossSec}.", User.Identity?.Name, model.PartNumber, model.ArticleName, model.MaterialGroup, model.CrossSec);
             if (!ModelState.IsValid)
             {
                 return View(model);
@@ -61,10 +61,10 @@ namespace CSVWorker.Controllers
             }
         }
 
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> Edit(int id)
         {
-            _logger.LogInformation($"IMDSPorscheDatabase Edit page accessed by user {User.Identity?.Name} for record ID {id}.");
+            _logger.LogInformation("IMDSPorscheDatabase Edit page accessed by user {Name} for record ID {id}.", User.Identity?.Name, id);
             var record = await _service.GetByIdAsync(id);
             if (record == null)
             {
@@ -75,10 +75,10 @@ namespace CSVWorker.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> Edit(long id, [Bind("Id,PartNumber,ArticleName,MaterialGroup,CrossSec")] IMDSPorscheDatabaseRecord model)
         {
-            _logger.LogInformation($"IMDSPorscheDatabase Edit attempt by user {User.Identity?.Name} for record ID={id} with PartNumber={model.PartNumber}, ArticleName={model.ArticleName}, MaterialGroup={model.MaterialGroup}, CrossSec={model.CrossSec}.");
+            _logger.LogInformation("IMDSPorscheDatabase Edit attempt by user {Name} for record ID={id} with PartNumber={PartNumber}, ArticleName={ArticleName}, MaterialGroup={MaterialGroup}, CrossSec={CrossSec}.", User.Identity?.Name, id, model.PartNumber, model.ArticleName, model.MaterialGroup, model.CrossSec);
             if (id != model.Id)
             {
                 return BadRequest();
@@ -102,7 +102,7 @@ namespace CSVWorker.Controllers
             }
         }
 
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public IActionResult UpdatePorscheDatabase()
         {
             return View(new UpdatePorscheDatabaseVM());
@@ -114,10 +114,10 @@ namespace CSVWorker.Controllers
         [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> UpdatePorscheDatabase(UpdatePorscheDatabaseVM model, CancellationToken cancellationToken)
         {
-            _logger.LogInformation($"POST action sent by user {User.Identity?.Name} to UpdatePorscheDatabase with file {model.PorscheCSV?.FileName}.");
+            _logger.LogInformation("POST action sent by user {Name} to UpdatePorscheDatabase with file {FileName}.", User.Identity?.Name, model.PorscheCSV?.FileName);
             if (!ModelState.IsValid)
             {
                 model.ErrorMessage = "Please fill all required fields.";
@@ -147,7 +147,7 @@ namespace CSVWorker.Controllers
         // details
         public async Task<IActionResult> Details(long id)
         {
-            _logger.LogInformation($"IMDSPorscheDatabase Details page accessed by user {User.Identity?.Name} for record ID {id}.");
+            _logger.LogInformation("IMDSPorscheDatabase Details page accessed by user {Name} for record ID={id}.", User.Identity?.Name, id);
             var record = await _service.GetByIdAsync(id);
             if (record == null)
             {
@@ -158,10 +158,10 @@ namespace CSVWorker.Controllers
         }
 
         // delete
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> Delete(long id)
         {
-            _logger.LogInformation($"IMDSPorscheDatabase Delete page accessed by user {User.Identity?.Name} for record ID={id}.");
+            _logger.LogInformation("IMDSPorscheDatabase Delete page accessed by user {Name} for record ID={id}.", User.Identity?.Name, id);
             var record = await _service.GetByIdAsync(id);
             if (record == null)
             {
@@ -173,10 +173,10 @@ namespace CSVWorker.Controllers
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Roles = Roles.AdminOrManager)]
+        [Authorize(Policy = "AdminOrManager")]
         public async Task<IActionResult> DeleteConfirmed(long id)
         {
-            _logger.LogInformation($"IMDSPorscheDatabase Delete attempt by user {User.Identity?.Name} for record ID={id}.");
+            _logger.LogInformation("IMDSPorscheDatabase Delete attempt by user {Name} for record ID={id}.", User.Identity?.Name, id);
             var record = await _service.GetByIdAsync(id);
             if (record == null)
             {
@@ -185,7 +185,7 @@ namespace CSVWorker.Controllers
 
             await _service.DeleteAsync(id);
 
-            _logger.LogInformation($"IMDSPorscheDatabase record ID={id} deleted by user {User.Identity?.Name}.");
+            _logger.LogInformation("IMDSPorscheDatabase record ID={id} deleted by user {Name}.", id, User.Identity?.Name);
 
             return RedirectToAction(nameof(Index));
         }
