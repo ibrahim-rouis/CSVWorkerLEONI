@@ -8,7 +8,7 @@ using Microsoft.Extensions.Options;
 
 namespace CSVWorker.Controllers
 {
-    [Authorize(Policy = "Admin")]
+    [Authorize(Policy = Policies.AdminPolicy)]
     public class LogViewerController : Controller
     {
         private readonly LogViewerService _logViewerService;

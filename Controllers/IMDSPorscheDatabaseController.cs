@@ -30,7 +30,7 @@ namespace CSVWorker.Controllers
             return View(model);
         }
 
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public IActionResult Create()
         {
             _logger.LogInformation("IMDSPorscheDatabase Create page accessed by user {Name}.", User.Identity?.Name);
@@ -39,7 +39,7 @@ namespace CSVWorker.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> Create([Bind("PartNumber,ArticleName,MaterialGroup,CrossSec")] IMDSPorscheDatabaseRecord model)
         {
             _logger.LogInformation("IMDSPorscheDatabase Create attempt by user {Name} with PartNumber={PartNumber}, ArticleName={ArticleName}, MaterialGroup={MaterialGroup}, CrossSec={CrossSec}.", User.Identity?.Name, model.PartNumber, model.ArticleName, model.MaterialGroup, model.CrossSec);
@@ -61,7 +61,7 @@ namespace CSVWorker.Controllers
             }
         }
 
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> Edit(int id)
         {
             _logger.LogInformation("IMDSPorscheDatabase Edit page accessed by user {Name} for record ID {id}.", User.Identity?.Name, id);
@@ -75,7 +75,7 @@ namespace CSVWorker.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> Edit(long id, [Bind("Id,PartNumber,ArticleName,MaterialGroup,CrossSec")] IMDSPorscheDatabaseRecord model)
         {
             _logger.LogInformation("IMDSPorscheDatabase Edit attempt by user {Name} for record ID={id} with PartNumber={PartNumber}, ArticleName={ArticleName}, MaterialGroup={MaterialGroup}, CrossSec={CrossSec}.", User.Identity?.Name, id, model.PartNumber, model.ArticleName, model.MaterialGroup, model.CrossSec);
@@ -102,7 +102,7 @@ namespace CSVWorker.Controllers
             }
         }
 
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public IActionResult UpdatePorscheDatabase()
         {
             return View(new UpdatePorscheDatabaseVM());
@@ -114,7 +114,7 @@ namespace CSVWorker.Controllers
         [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> UpdatePorscheDatabase(UpdatePorscheDatabaseVM model, CancellationToken cancellationToken)
         {
             _logger.LogInformation("POST action sent by user {Name} to UpdatePorscheDatabase with file {FileName}.", User.Identity?.Name, model.PorscheCSV?.FileName);
@@ -158,7 +158,7 @@ namespace CSVWorker.Controllers
         }
 
         // delete
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> Delete(long id)
         {
             _logger.LogInformation("IMDSPorscheDatabase Delete page accessed by user {Name} for record ID={id}.", User.Identity?.Name, id);
@@ -173,7 +173,7 @@ namespace CSVWorker.Controllers
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> DeleteConfirmed(long id)
         {
             _logger.LogInformation("IMDSPorscheDatabase Delete attempt by user {Name} for record ID={id}.", User.Identity?.Name, id);

@@ -31,7 +31,7 @@ namespace CSVWorker.Controllers
             return View(model);
         }
 
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public IActionResult Create()
         {
             _logger.LogInformation("IMDSDatabase Create page accessed by user {Name}.", User.Identity?.Name);
@@ -40,7 +40,7 @@ namespace CSVWorker.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> Create([Bind("PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
         {
             _logger.LogInformation("IMDSDatabase Create attempt by user {Name} with PartNumber={PartNumber}, ForsPN={ForsPN}, SIGIPPN={SIGIPPN}, VisualPN={VisualPN}, WGK={WGK}, NodeID={NodeID}.", User.Identity?.Name, model.PartNumber, model.ForsPN, model.SIGIPPN, model.VisualPN, model.WGK, model.NodeID);
@@ -62,7 +62,7 @@ namespace CSVWorker.Controllers
             }
         }
 
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> Edit(long id)
         {
             _logger.LogInformation("IMDSDatabase Edit page accessed by user {Name} for record ID={id}.", User.Identity?.Name, id);
@@ -76,7 +76,7 @@ namespace CSVWorker.Controllers
 
         [HttpPost]
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> Edit(long id, [Bind("Id,PartNumber,ForsPN,SIGIPPN,VisualPN,WGK,NodeID")] IMDSDatabaseRecord model)
         {
             _logger.LogInformation("IMDSDatabase Edit attempt by user {Name} for record ID={id} with PartNumber={PartNumber}, ForsPN={ForsPN}, SIGIPPN={SIGIPPN}, VisualPN={VisualPN}, WGK={WGK}, NodeID={NodeID}.", User.Identity?.Name, id, model.PartNumber, model.ForsPN, model.SIGIPPN, model.VisualPN, model.WGK, model.NodeID);
@@ -103,7 +103,7 @@ namespace CSVWorker.Controllers
             }
         }
 
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public IActionResult UpdateDatabase()
         {
             _logger.LogInformation("IMDSDatabase UpdateDatabase page accessed by user {Name}.", User.Identity?.Name);
@@ -116,7 +116,7 @@ namespace CSVWorker.Controllers
         [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
         [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> UpdateDatabase(UpdateDatabaseVM model, CancellationToken cancellationToken)
         {
             _logger.LogInformation("IMDSDatabase UpdateDatabase attempt by user {Name} with LPCPFile={LPCPFile}, A2File={A2File}.", User.Identity?.Name, model.LPCPFile?.FileName, model.A2File?.FileName);
@@ -165,7 +165,7 @@ namespace CSVWorker.Controllers
         }
 
         // delete
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> Delete(long id)
         {
             _logger.LogInformation("IMDSDatabase Delete page accessed by user {Name} for record ID={id}.", User.Identity?.Name, id);
@@ -180,7 +180,7 @@ namespace CSVWorker.Controllers
 
         [HttpPost, ActionName("Delete")]
         [ValidateAntiForgeryToken]
-        [Authorize(Policy = "AdminOrManager")]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
         public async Task<IActionResult> DeleteConfirmed(long id)
         {
             _logger.LogInformation("IMDSDatabase Delete attempt by user {Name} for record ID={id}.", User.Identity?.Name, id);
