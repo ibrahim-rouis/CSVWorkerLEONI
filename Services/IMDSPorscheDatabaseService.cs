@@ -351,6 +351,33 @@ namespace CSVWorker.Services
 
             return new PagedResult<IMDSPorscheDatabaseRecord>(items, total, pageNumber.Value, pageSize);
         }
+
+        // Export Database
+        public async Task<byte[]> ExportDatabaseAsync(CancellationToken cancellationToken)
+        {
+            var allRecords = await _context.IMDSPorscheDatabase.ToListAsync(cancellationToken);
+
+            var exportedDatabase = new List<string[]>
+            {
+                (new string[] { "Item- /Mat.-No.", "Article Name", "FORS Material Group", "Cross-Sec (INDIV1)", "date" })
+            };
+
+            foreach (var record in allRecords)
+            {
+                exportedDatabase.Add(new string[]
+                {
+                    record.PartNumber ?? string.Empty,
+                    record.ArticleName ?? string.Empty,
+                    record.MaterialGroup ?? string.Empty,
+                    record.CrossSec ?? string.Empty,
+                    string.Empty
+                });
+            }
+
+            var outputBytes = await CsvHelper.ConvertListToCsv(exportedDatabase, ';');
+
+            return outputBytes;
+        }
     }
 
 }

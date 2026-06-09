@@ -520,6 +520,37 @@ namespace CSVWorker.Services
 
             return new PagedResult<IMDSDatabaseRecord>(items, total, pageNumber.Value, pageSize);
         }
-    }
 
+        // Export Database
+        public async Task<byte[]> ExportDatabaseAsync(CancellationToken cancellationToken)
+        {
+            var allRecords = await _context.IMDSDatabase.ToListAsync(cancellationToken);
+
+            var exportedDatabase = new List<string[]>
+            {
+                (new string[] { "Node ID", "x", "PART/ITEM NO/", "FORS PN", "SIGIP PN", "Visual PN", "WGK", "last Status Date", "Weight", "Weight Unit" })
+            };
+
+            foreach (var record in allRecords)
+            {
+                exportedDatabase.Add(new string[]
+                {
+                    record.NodeID ?? string.Empty,
+                    string.Empty,
+                    record.PartNumber ?? string.Empty,
+                    record.ForsPN ?? string.Empty,
+                    record.SIGIPPN ?? string.Empty,
+                    record.VisualPN ?? string.Empty,
+                    record.WGK ?? string.Empty,
+                    string.Empty,
+                    string.Empty,
+                    string.Empty
+                });
+            }
+
+            var outputBytes = await CsvHelper.ConvertListToCsv(exportedDatabase, ';');
+
+            return outputBytes;
+        }
+    }
 }

@@ -196,5 +196,18 @@ namespace CSVWorker.Controllers
 
             return RedirectToAction(nameof(Index));
         }
+
+        // Export
+        public async Task<IActionResult> Export(CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("IMDSDatabase Export attempted by user {Name}.", User.Identity?.Name);
+
+            var outputBytes = await _service.ExportDatabaseAsync(cancellationToken);
+
+            var dateString = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
+            var fileName = $"FORS_IMDS_Database_{dateString}.csv";
+
+            return File(outputBytes, "text/csv", fileName);
+        }
     }
 }

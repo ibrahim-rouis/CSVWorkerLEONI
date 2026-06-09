@@ -70,7 +70,12 @@
 
 <!-- Basic Bootstrap Table -->
 <div class="card">
-    <h5 class="card-header">FORS IMDS Database</h5>
+    <div class="card-header py-3 d-flex align-items-center">
+        <h6 class="m-0 font-weight-bold text-primary">FORS IMDS Database</h6>
+        <div class="ms-auto">
+            <a asp-action="Export" class="btn btn-sm rounded-pill btn-primary ms-auto">Export Database</a>
+        </div>
+    </div>
     <div class="table-responsive text-nowrap">
         <table class="table table-striped">
             <thead>
