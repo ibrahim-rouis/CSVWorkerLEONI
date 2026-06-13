@@ -265,6 +265,11 @@ namespace CSVWorker.Services
 
         public async Task<IMDSPorscheDatabaseRecord> SaveAsync(IMDSPorscheDatabaseRecord record, string? username)
         {
+            if (string.IsNullOrWhiteSpace(record.PartNumber) || string.IsNullOrWhiteSpace(record.ArticleName))
+            {
+                throw new CSVWorkerInvalidDataException("Record must have a Part Number and Article Name");
+            }
+
             // Check if already exists
             if (await Exists(record))
             {
@@ -305,6 +310,11 @@ namespace CSVWorker.Services
 
         public async Task<IMDSPorscheDatabaseRecord> UpdateAsync(IMDSPorscheDatabaseRecord record, string? username)
         {
+            if (string.IsNullOrWhiteSpace(record.PartNumber) || string.IsNullOrWhiteSpace(record.ArticleName))
+            {
+                throw new CSVWorkerInvalidDataException("Record must have a Part Number and Article Name");
+            }
+
             var existingRecord = await GetByIdAsync(record.Id);
 
             if (existingRecord == null)

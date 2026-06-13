@@ -449,6 +449,11 @@ namespace CSVWorker.Services
                 throw new CSVWorkerArgumentException("Record with the same part numbers already exists.");
             }
 
+            if (!HasAtLeastOneIdentifierNumber(record))
+            {
+                throw new CSVWorkerArgumentException("Record does not have any identifier number.");
+            }
+
             // Check if partnumber exists
             if (!string.IsNullOrWhiteSpace(record.PartNumber))
             {
@@ -504,6 +509,11 @@ namespace CSVWorker.Services
             if (existingRecord == null)
             {
                 throw new CSVWorkerArgumentException($"Record with ID {record.Id} not found for update.");
+            }
+
+            if (!HasAtLeastOneIdentifierNumber(record))
+            {
+                throw new CSVWorkerArgumentException("Record must have at least one identifier number.");
             }
 
             // Update properties
@@ -582,6 +592,15 @@ namespace CSVWorker.Services
             var outputBytes = await CsvHelper.ConvertListToCsv(exportedDatabase, ';');
 
             return outputBytes;
+        }
+
+        private static bool HasAtLeastOneIdentifierNumber(IMDSDatabaseRecord record)
+        {
+            return !string.IsNullOrWhiteSpace(record.PartNumber) ||
+                   !string.IsNullOrWhiteSpace(record.ForsPN) ||
+                   !string.IsNullOrWhiteSpace(record.SIGIPPN) ||
+                   !string.IsNullOrWhiteSpace(record.VisualPN) ||
+                   !string.IsNullOrWhiteSpace(record.WGK);
         }
     }
 }
