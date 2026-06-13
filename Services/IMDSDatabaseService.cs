@@ -397,9 +397,31 @@ namespace CSVWorker.Services
                 ))
                 .FirstOrDefaultAsync();
 
-            if (found != null && !string.IsNullOrEmpty(found.NodeID))
+            if (found != null)
             {
-                return found.NodeID;
+                if (!string.IsNullOrWhiteSpace(found.NodeID))
+                {
+                    return found.NodeID;
+                }
+                else
+                {
+                    var found2 = await _context.IMDSDatabase
+                    .OrderByDescending(p => p.LastUpdatedAt)
+                    .Where(p =>
+                    (
+                        (!string.IsNullOrWhiteSpace(p.PartNumber) && p.PartNumber == found.PartNumber) ||
+                        (!string.IsNullOrWhiteSpace(p.ForsPN) && p.ForsPN == found.ForsPN) ||
+                        (!string.IsNullOrWhiteSpace(p.SIGIPPN) && p.SIGIPPN == found.SIGIPPN) ||
+                        (!string.IsNullOrWhiteSpace(p.VisualPN) && p.VisualPN == found.VisualPN) ||
+                        (!string.IsNullOrWhiteSpace(p.WGK) && p.WGK == found.WGK)
+                    ))
+                    .FirstOrDefaultAsync();
+                    if (found2 != null && !string.IsNullOrWhiteSpace(found2.NodeID))
+                    {
+                        return found2.NodeID;
+                    }
+                }
+
             }
 
             string trimmedPartNumber = RemoveTrailingLetters(query);
@@ -413,18 +435,9 @@ namespace CSVWorker.Services
             }
         }
 
-        public async Task<IMDSDatabaseRecord?> GetByPartNumbersAsync(string? partNumber, string? forstPN, string? sigipPN, string? visualPN, string? wgk)
+        public async Task<IMDSDatabaseRecord?> GetByPartNumberAsync(string partNumber)
         {
-            var record = await _context.IMDSDatabase.FirstOrDefaultAsync(r =>
-                r.PartNumber == partNumber
-                && r.ForsPN == forstPN
-                && r.SIGIPPN == sigipPN
-                && r.VisualPN == visualPN
-                && r.WGK == wgk);
-            if (record == null)
-            {
-                return null;
-            }
+            var record = await _context.IMDSDatabase.FirstOrDefaultAsync(r => r.PartNumber == partNumber);
             return record;
         }
 
@@ -435,6 +448,24 @@ namespace CSVWorker.Services
             {
                 throw new CSVWorkerArgumentException("Record with the same part numbers already exists.");
             }
+
+            // Check if partnumber exists
+            if (!string.IsNullOrWhiteSpace(record.PartNumber))
+            {
+                var existingRecord = await GetByPartNumberAsync(record.PartNumber);
+                if (existingRecord != null)
+                {
+                    throw new CSVWorkerArgumentException($"Record with same PartNumber {record.PartNumber} already exists.");
+                }
+            }
+
+            // Trim all string properties to avoid leading/trailing spaces
+            record.PartNumber = record.PartNumber?.Trim();
+            record.ForsPN = record.ForsPN?.Trim();
+            record.SIGIPPN = record.SIGIPPN?.Trim();
+            record.VisualPN = record.VisualPN?.Trim();
+            record.WGK = record.WGK?.Trim();
+            record.NodeID = record.NodeID?.Trim();
 
             record.CreatedAt = DateTime.UtcNow;
             record.createdBy = username;
@@ -476,12 +507,12 @@ namespace CSVWorker.Services
             }
 
             // Update properties
-            existingRecord.PartNumber = record.PartNumber;
-            existingRecord.ForsPN = record.ForsPN;
-            existingRecord.SIGIPPN = record.SIGIPPN;
-            existingRecord.VisualPN = record.VisualPN;
-            existingRecord.WGK = record.WGK;
-            existingRecord.NodeID = record.NodeID;
+            existingRecord.PartNumber = record.PartNumber?.Trim();
+            existingRecord.ForsPN = record.ForsPN?.Trim();
+            existingRecord.SIGIPPN = record.SIGIPPN?.Trim();
+            existingRecord.VisualPN = record.VisualPN?.Trim();
+            existingRecord.WGK = record.WGK?.Trim();
+            existingRecord.NodeID = record.NodeID?.Trim();
             existingRecord.LastUpdatedAt = DateTime.UtcNow;
             existingRecord.LastUpdatedBy = username;
 

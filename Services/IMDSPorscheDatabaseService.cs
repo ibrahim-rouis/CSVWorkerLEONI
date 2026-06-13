@@ -260,10 +260,6 @@ namespace CSVWorker.Services
         public async Task<IMDSPorscheDatabaseRecord?> GetByPartNumberAsync(string partNumber)
         {
             var record = await _context.IMDSPorscheDatabase.FirstOrDefaultAsync(r => r.PartNumber == partNumber);
-            if (record == null)
-            {
-                return null;
-            }
             return record;
         }
 
@@ -274,6 +270,12 @@ namespace CSVWorker.Services
             {
                 throw new CSVWorkerArgumentException("Record with the same part numbers already exists.");
             }
+
+            // Trim whitespace
+            record.PartNumber = record.PartNumber?.Trim();
+            record.ArticleName = record.ArticleName?.Trim();
+            record.MaterialGroup = record.MaterialGroup?.Trim();
+            record.CrossSec = record.CrossSec?.Trim();
 
             record.CreatedAt = DateTime.UtcNow;
             record.createdBy = username;
@@ -303,7 +305,7 @@ namespace CSVWorker.Services
 
         public async Task<IMDSPorscheDatabaseRecord> UpdateAsync(IMDSPorscheDatabaseRecord record, string? username)
         {
-            var existingRecord = await _context.IMDSPorscheDatabase.FindAsync(record.Id);
+            var existingRecord = await GetByIdAsync(record.Id);
 
             if (existingRecord == null)
             {
@@ -311,10 +313,10 @@ namespace CSVWorker.Services
             }
 
             // Update properties
-            existingRecord.PartNumber = record.PartNumber;
-            existingRecord.ArticleName = record.ArticleName;
-            existingRecord.MaterialGroup = record.MaterialGroup;
-            existingRecord.CrossSec = record.CrossSec;
+            existingRecord.PartNumber = record.PartNumber?.Trim();
+            existingRecord.ArticleName = record.ArticleName?.Trim();
+            existingRecord.MaterialGroup = record.MaterialGroup?.Trim();
+            existingRecord.CrossSec = record.CrossSec?.Trim();
             existingRecord.LastUpdatedAt = DateTime.UtcNow;
             existingRecord.LastUpdatedBy = username;
 
