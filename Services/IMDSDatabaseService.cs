@@ -409,14 +409,14 @@ namespace CSVWorker.Services
                     .OrderByDescending(p => p.LastUpdatedAt)
                     .Where(p =>
                     (
-                        (!string.IsNullOrWhiteSpace(p.PartNumber) && p.PartNumber == found.PartNumber) ||
+                        ((!string.IsNullOrWhiteSpace(p.PartNumber) && p.PartNumber == found.PartNumber) ||
                         (!string.IsNullOrWhiteSpace(p.ForsPN) && p.ForsPN == found.ForsPN) ||
                         (!string.IsNullOrWhiteSpace(p.SIGIPPN) && p.SIGIPPN == found.SIGIPPN) ||
                         (!string.IsNullOrWhiteSpace(p.VisualPN) && p.VisualPN == found.VisualPN) ||
-                        (!string.IsNullOrWhiteSpace(p.WGK) && p.WGK == found.WGK)
+                        (!string.IsNullOrWhiteSpace(p.WGK) && p.WGK == found.WGK)) && !string.IsNullOrWhiteSpace(p.NodeID)
                     ))
                     .FirstOrDefaultAsync();
-                    if (found2 != null && !string.IsNullOrWhiteSpace(found2.NodeID))
+                    if (found2 != null)
                     {
                         return found2.NodeID;
                     }
