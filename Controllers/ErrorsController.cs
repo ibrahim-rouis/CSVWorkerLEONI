@@ -1,9 +1,7 @@
-﻿using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Mvc;
+﻿using Microsoft.AspNetCore.Mvc;
 
 namespace CSVWorker.Controllers
 {
-    [AllowAnonymous]
     public class ErrorsController : Controller
     {
         private readonly ILogger<ErrorsController> _logger;

@@ -323,7 +323,7 @@ namespace CSVWorker.Services
         {
             if (model.CsvFiles == null || !model.CsvFiles.Any())
             {
-                throw new CSVWorkerArgumentException("Input missing - please provide at least one FORS BOM CSV file and a Database CSV file.");
+                throw new CSVWorkerArgumentException("Input missing - please provide at least one IMDS BOM CSV file.");
             }
 
             _logger.LogDebug("IMDSBomToPorscheIMDS started. Number of IMDS BOM files={BOMFilesCount}", model.CsvFiles.Count());
