@@ -268,9 +268,12 @@ namespace CSVWorker.Services
             string BuildKey(string? pn, string? fors, string? sigip, string? visual, string? wgk)
                 => $"{Normalize(pn)}|{Normalize(fors)}|{Normalize(sigip)}|{Normalize(visual)}|{Normalize(wgk)}";
 
-            var existingLookup = _existingIMDSRecords.ToDictionary(
-                e => BuildKey(e.PartNumber, e.ForsPN, e.SIGIPPN, e.VisualPN, e.WGK),
-                e => e);
+            var existingLookup = _existingIMDSRecords
+                .GroupBy(e => BuildKey(e.PartNumber, e.ForsPN, e.SIGIPPN, e.VisualPN, e.WGK))
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(e => e.LastUpdatedAt).First()
+                );
 
             foreach (var lpcpRow in lpcpRecords)
             {

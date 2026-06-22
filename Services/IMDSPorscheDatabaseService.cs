@@ -128,16 +128,19 @@ namespace CSVWorker.Services
             var recordsToUpdate = new List<IMDSPorscheDatabaseRecord>();
 
             // Load whole Porsche IMDS database into memory for faster lookups during processing.
-            var _existingIMDSRecords = await _context.IMDSPorscheDatabase.ToListAsync(cancellationToken);
+            var _existingPorscheIMDSRecords = await _context.IMDSPorscheDatabase.ToListAsync(cancellationToken);
 
             // helper
             string Normalize(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : s.Trim();
             string BuildKey(string? pn)
                 => $"{Normalize(pn)}";
 
-            var existingLookup = _existingIMDSRecords.ToDictionary(
-                e => BuildKey(e.PartNumber),
-                e => e);
+            var existingLookup = _existingPorscheIMDSRecords
+                .GroupBy(e => BuildKey(e.PartNumber))
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(e => e.LastUpdatedAt).First()
+                );
 
             foreach (var row in porscheCSVDatabase)
             {
