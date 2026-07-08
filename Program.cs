@@ -59,28 +59,14 @@ builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
    .AddNegotiate();
 
 
-// In production, enforce role-based authorization. 
-if (!builder.Environment.IsDevelopment())
+builder.Services.AddAuthorization(options =>
 {
-    builder.Services.AddAuthorization(options =>
-    {
-        options.FallbackPolicy = options.DefaultPolicy;
-        options.AddPolicy(Policies.AdminPolicy, p => p.RequireRole(Roles.AdminGroupName));
-        options.AddPolicy(Policies.ManagerPolicy, p => p.RequireRole(Roles.ManagerGroupName));
-        options.AddPolicy(Policies.AdminOrManagerPolicy, p => p.RequireRole(Roles.AdminGroupName, Roles.ManagerGroupName));
-    });
-}
-// In development, allow user without roles to access everything in policies
-else
-{
-    builder.Services.AddAuthorization(options =>
-    {
-        options.FallbackPolicy = options.DefaultPolicy;
-        options.AddPolicy(Policies.AdminPolicy, p => p.RequireAssertion(_ => true));
-        options.AddPolicy(Policies.ManagerPolicy, p => p.RequireAssertion(_ => true));
-        options.AddPolicy(Policies.AdminOrManagerPolicy, p => p.RequireAssertion(_ => true));
-    });
-}
+    options.FallbackPolicy = options.DefaultPolicy;
+    options.AddPolicy(Policies.AdminPolicy, p => p.RequireAssertion(_ => true));
+    options.AddPolicy(Policies.ManagerPolicy, p => p.RequireAssertion(_ => true));
+    options.AddPolicy(Policies.AdminOrManagerPolicy, p => p.RequireAssertion(_ => true));
+});
+
 
 /* **************************************************** */
 
