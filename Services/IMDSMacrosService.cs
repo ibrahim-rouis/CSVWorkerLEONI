@@ -145,8 +145,8 @@ namespace CSVWorker.Services
                                         PartNumber = row[forsBomPartNumberIndex].Trim(),
                                         MaterialClass = row[forsBomMaterialGroupIndex].Trim(),
                                         MU = row[forsBomMUIndex].Trim(),
-                                        Quantity = (int)(double.TryParse(row[forsBomQuantityIndex].Trim().Replace(',', '.'), out var quantity) ? quantity : 0),
-                                        Weight = double.TryParse(row[forsBomWeightIndex].Trim().Replace(',', '.'), out var weight) ? weight * 1000 : 0 // convert weight from kg to g, as IMDS expects weight in grams
+                                        Quantity = (int)(double.TryParse(row[forsBomQuantityIndex].Trim(), out var quantity) ? quantity : 0),
+                                        Weight = double.TryParse(row[forsBomWeightIndex].Trim(), out var weight) ? weight * 1000 : 0 // convert weight from kg to g, as IMDS expects weight in grams
                                     });
                                 }
                             }
