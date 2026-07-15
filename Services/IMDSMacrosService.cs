@@ -274,8 +274,6 @@ namespace CSVWorker.Services
                         var imdsFileEntry = archive.CreateEntry(imdsFileName);
                         await using (var entryStream = imdsFileEntry.Open())
                         {
-                            // IMDS csv is commas separated.
-                            // unlike FORS BOM input csv files which are semicolon separated.
                             var imdsFileEntryOutputBytes = await CsvHelper.ConvertListToCsv(outputRow, ';', cancellationToken);
                             await entryStream.WriteAsync(imdsFileEntryOutputBytes, cancellationToken);
                             await entryStream.FlushAsync(cancellationToken);
@@ -527,8 +525,6 @@ namespace CSVWorker.Services
                     var imdsFileEntry = archive.CreateEntry(imdsFileName);
                     await using (var entryStream = imdsFileEntry.Open())
                     {
-                        // IMDS csv is commas separated.
-                        // unlike FORS BOM input csv files which are semicolon separated.
                         var imdsFileEntryOutputBytes = await CsvHelper.ConvertListToCsv(outputRows, ';', cancellationToken);
                         await entryStream.WriteAsync(imdsFileEntryOutputBytes, cancellationToken);
                         await entryStream.FlushAsync(cancellationToken);
