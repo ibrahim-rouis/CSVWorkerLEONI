@@ -32,10 +32,12 @@
             endPage = currentPage + 2;
         }
     }
+
+    bool isAdminOrManager = (await AuthorizationService.AuthorizeAsync(User, null, Policies.AdminOrManagerPolicy)).Succeeded;
 }
 
 <!-- Menu -->
-@if ((await AuthorizationService.AuthorizeAsync(User, null, Policies.AdminOrManagerPolicy)).Succeeded)
+@if (isAdminOrManager)
 {
     <div class="card-body mb-3">
         <a asp-action="Create" class="btn rounded-pill btn-primary">Add new record</a>
@@ -99,8 +101,7 @@
                                title="Details">
                                 <span class="icon-base bx bx-info-circle icon-md text-white"></span>
                             </a>
-                            @if ((await AuthorizationService.AuthorizeAsync(User, null,
-                        Policies.AdminOrManagerPolicy)).Succeeded)
+                            @if (isAdminOrManager)
                             {
                                 <a class="btn btn-icon btn-warning mx-1" asp-action="Edit" asp-route-id="@item.Id" title="Edit">
                                     <span class="icon-base bx bx-edit-alt icon-md text-white"></span>

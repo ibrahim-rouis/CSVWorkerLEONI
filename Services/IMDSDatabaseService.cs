@@ -35,7 +35,7 @@ namespace CSVWorker.Services
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <exception cref="CSVWorkerArgumentException">Thrown when either the LPCP file or A2 file is null.</exception>
         /// <exception cref="CSVWorkerInvalidDataException">Thrown when the header of the LPCP or A2 file is invalid or empty.</exception>
-        public async Task UpdateDatabaseIMDS(UpdateDatabaseVM model, string? username, CancellationToken cancellationToken)
+        public async Task UpdateDatabaseIMDS(UpdateDatabaseVM model, CancellationToken cancellationToken)
         {
             _logger.LogDebug("UpdateDatabase started. LPCP file={LPCPFileName}, A2 file={A2FileName}", model.LPCPFile?.FileName, model.A2File?.FileName);
 
@@ -305,7 +305,6 @@ namespace CSVWorker.Services
                     if (exisitingRecord.NodeID != nodeID)
                     {
                         exisitingRecord.NodeID = nodeID;
-                        exisitingRecord.LastUpdatedBy = username;
                         exisitingRecord.LastUpdatedAt = DateTime.UtcNow;
 
                         recordsToUpdate.Add(exisitingRecord);
@@ -324,8 +323,6 @@ namespace CSVWorker.Services
                         NodeID = nodeID,
                         CreatedAt = DateTime.UtcNow,
                         LastUpdatedAt = DateTime.UtcNow,
-                        createdBy = username,
-                        LastUpdatedBy = username
                     };
 
                     recordsToAdd.Add(newRecord);
@@ -444,7 +441,7 @@ namespace CSVWorker.Services
             return record;
         }
 
-        public async Task<IMDSDatabaseRecord> SaveAsync(IMDSDatabaseRecord record, string? username)
+        public async Task<IMDSDatabaseRecord> SaveAsync(IMDSDatabaseRecord record)
         {
             // Check if already exists
             if (await Exists(record))
@@ -476,9 +473,7 @@ namespace CSVWorker.Services
             record.NodeID = record.NodeID?.Trim();
 
             record.CreatedAt = DateTime.UtcNow;
-            record.createdBy = username;
             record.LastUpdatedAt = DateTime.UtcNow;
-            record.LastUpdatedBy = username;
 
             var entry = await _context.IMDSDatabase.AddAsync(record);
             await _context.SaveChangesAsync();
@@ -505,7 +500,7 @@ namespace CSVWorker.Services
             await _context.SaveChangesAsync();
         }
 
-        public async Task<IMDSDatabaseRecord> UpdateAsync(IMDSDatabaseRecord record, string? username)
+        public async Task<IMDSDatabaseRecord> UpdateAsync(IMDSDatabaseRecord record)
         {
             var existingRecord = await _context.IMDSDatabase.FindAsync(record.Id);
 
@@ -527,7 +522,6 @@ namespace CSVWorker.Services
             existingRecord.WGK = record.WGK?.Trim();
             existingRecord.NodeID = record.NodeID?.Trim();
             existingRecord.LastUpdatedAt = DateTime.UtcNow;
-            existingRecord.LastUpdatedBy = username;
 
             _context.IMDSDatabase.Update(existingRecord);
             await _context.SaveChangesAsync();
@@ -535,7 +529,7 @@ namespace CSVWorker.Services
             return existingRecord;
         }
 
-        // Offset-pagination with cancellation and basic validation.
+        // Paginated list of IMDSDatabaseRecords with optional search query
         public async Task<PagedResult<IMDSDatabaseRecord>> GetPagedAsync(int? pageNumber, string? query)
         {
             var pageSize = _config.DefaultPageSize;
@@ -560,6 +554,7 @@ namespace CSVWorker.Services
                 .OrderByDescending(r => r.LastUpdatedAt) // apply ordering after filtering
                 .Skip((pageNumber.Value - 1) * pageSize)
                 .Take(pageSize)
+                .AsNoTracking()
                 .ToListAsync();
 
             return new PagedResult<IMDSDatabaseRecord>(items, total, pageNumber.Value, pageSize);

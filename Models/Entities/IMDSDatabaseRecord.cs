@@ -24,13 +24,7 @@ namespace CSVWorker.Models.Entities
         [StringLength(255)]
         public string? NodeID { get; set; }
 
-        public DateTime CreatedAt { get; set; } = DateTime.Now;
-        public DateTime LastUpdatedAt { get; set; }
-
-        [StringLength(255)]
-        public string? createdBy { get; set; }
-
-        [StringLength(255)]
-        public string? LastUpdatedBy { get; set; }
+        public DateTime CreatedAt { get; set; }
+        public DateTime? LastUpdatedAt { get; set; }
     }
 }

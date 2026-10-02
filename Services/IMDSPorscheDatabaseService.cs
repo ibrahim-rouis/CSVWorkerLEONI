@@ -29,13 +29,13 @@ namespace CSVWorker.Services
         }
 
         /// <summary>
-        /// Updates the database by processing and merging data from LPCP and A2 CSV files
+        /// Updates the database by processing and merging data from CSV file
         /// </summary>
         /// <param name="model">The view model containing the LPCP and A2 files to process.</param>
         /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
         /// <exception cref="CSVWorkerArgumentException">Thrown when either the LPCP file or A2 file is null.</exception>
         /// <exception cref="CSVWorkerInvalidDataException">Thrown when the header of the LPCP or A2 file is invalid or empty.</exception>
-        public async Task UpdatePorscheDatabase(UpdatePorscheDatabaseVM model, string? username, CancellationToken cancellationToken)
+        public async Task UpdatePorscheDatabase(UpdatePorscheDatabaseVM model, CancellationToken cancellationToken)
         {
             _logger.LogDebug("UpdatePorscheDatabase started. Porsche CSV file={PorscheCSVFileName}", model.PorscheCSV?.FileName);
 
@@ -155,7 +155,6 @@ namespace CSVWorker.Services
                     {
                         exisitingRecord.ArticleName = row.ArticleName;
                         exisitingRecord.CrossSec = row.CrossSec;
-                        exisitingRecord.LastUpdatedBy = username;
                         exisitingRecord.LastUpdatedAt = DateTime.UtcNow;
 
                         recordsToUpdate.Add(exisitingRecord);
@@ -172,8 +171,6 @@ namespace CSVWorker.Services
                         CrossSec = row.CrossSec,
                         CreatedAt = DateTime.UtcNow,
                         LastUpdatedAt = DateTime.UtcNow,
-                        createdBy = username,
-                        LastUpdatedBy = username
                     };
 
                     recordsToAdd.Add(newRecord);
@@ -266,7 +263,7 @@ namespace CSVWorker.Services
             return record;
         }
 
-        public async Task<IMDSPorscheDatabaseRecord> SaveAsync(IMDSPorscheDatabaseRecord record, string? username)
+        public async Task<IMDSPorscheDatabaseRecord> SaveAsync(IMDSPorscheDatabaseRecord record)
         {
             if (string.IsNullOrWhiteSpace(record.PartNumber) || string.IsNullOrWhiteSpace(record.ArticleName))
             {
@@ -286,9 +283,7 @@ namespace CSVWorker.Services
             record.CrossSec = record.CrossSec?.Trim();
 
             record.CreatedAt = DateTime.UtcNow;
-            record.createdBy = username;
             record.LastUpdatedAt = DateTime.UtcNow;
-            record.LastUpdatedBy = username;
 
             var entry = await _context.IMDSPorscheDatabase.AddAsync(record);
             await _context.SaveChangesAsync();
@@ -311,7 +306,7 @@ namespace CSVWorker.Services
             await _context.SaveChangesAsync();
         }
 
-        public async Task<IMDSPorscheDatabaseRecord> UpdateAsync(IMDSPorscheDatabaseRecord record, string? username)
+        public async Task<IMDSPorscheDatabaseRecord> UpdateAsync(IMDSPorscheDatabaseRecord record)
         {
             if (string.IsNullOrWhiteSpace(record.PartNumber) || string.IsNullOrWhiteSpace(record.ArticleName))
             {
@@ -331,7 +326,6 @@ namespace CSVWorker.Services
             existingRecord.MaterialGroup = record.MaterialGroup?.Trim();
             existingRecord.CrossSec = record.CrossSec?.Trim();
             existingRecord.LastUpdatedAt = DateTime.UtcNow;
-            existingRecord.LastUpdatedBy = username;
 
             _context.IMDSPorscheDatabase.Update(existingRecord);
             await _context.SaveChangesAsync();
@@ -339,7 +333,7 @@ namespace CSVWorker.Services
             return existingRecord;
         }
 
-        // Offset-pagination with cancellation and basic validation.
+        // Paginated list of IMDSPorscheDatabaseRecords with optional search query
         public async Task<PagedResult<IMDSPorscheDatabaseRecord>> GetPagedAsync(int? pageNumber, string? query)
         {
             var pageSize = _config.DefaultPageSize;
@@ -362,6 +356,7 @@ namespace CSVWorker.Services
                 .OrderByDescending(r => r.LastUpdatedAt) // apply ordering after filtering
                 .Skip((pageNumber.Value - 1) * pageSize)
                 .Take(pageSize)
+                .AsNoTracking()
                 .ToListAsync();
 
             return new PagedResult<IMDSPorscheDatabaseRecord>(items, total, pageNumber.Value, pageSize);

@@ -1,7 +1,9 @@
 using CSVWorker.Configuration;
+using CSVWorker.Data;
 using CSVWorker.Models;
 using CSVWorker.Security;
 using CSVWorker.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authentication.Negotiate;
 using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
@@ -27,10 +29,10 @@ builder.Services.AddSerilog((services, lc) => lc
 .ReadFrom.Configuration(builder.Configuration)
 .ReadFrom.Services(services));
 
-// Register the DbContext with the connection string and MySQL provider
-var connectionString = builder.Configuration.GetConnectionString("MySqlConnection");
+// Register the DbContext with the connection string and SQLite provider
+var connectionString = builder.Configuration.GetConnectionString("SqliteConnection");
 builder.Services.AddDbContext<CSVWorkerDBContext>(options =>
-    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
+    options.UseSqlite(connectionString));
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
@@ -39,10 +41,17 @@ builder.Services.AddControllersWithViews();
 
 /* ************* Services ***************** */
 
+// Add memory caching and claims transformation services
+builder.Services.AddMemoryCache();
+builder.Services.AddTransient<IClaimsTransformation, ClaimsTransformer>();
+
+
 // IMDS Services
 builder.Services.AddScoped<IMDSMacrosService>();
 builder.Services.AddScoped<IMDSDatabaseService>();
 builder.Services.AddScoped<IMDSPorscheDatabaseService>();
+builder.Services.AddScoped<UsersService>();
+builder.Services.AddScoped<RolesService>();
 
 // Logs service
 builder.Services.AddScoped<LogViewerService>();
@@ -55,22 +64,26 @@ builder.Services.Configure<CSVWorkerConfig>(builder.Configuration.GetSection("Cs
 
 /* ************* Authentication Setup  ***************** */
 
-builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme)
-   .AddNegotiate();
+builder.Services.AddAuthentication(NegotiateDefaults.AuthenticationScheme).AddNegotiate();
 
 
 builder.Services.AddAuthorization(options =>
 {
     options.FallbackPolicy = options.DefaultPolicy;
-    options.AddPolicy(Policies.AdminPolicy, p => p.RequireAssertion(_ => true));
-    options.AddPolicy(Policies.ManagerPolicy, p => p.RequireAssertion(_ => true));
-    options.AddPolicy(Policies.AdminOrManagerPolicy, p => p.RequireAssertion(_ => true));
+    options.AddPolicy(Policies.AdminPolicy, p => p.RequireRole(Roles.AdminGroupName));
+    options.AddPolicy(Policies.ManagerPolicy, p => p.RequireRole(Roles.ManagerGroupName));
+    options.AddPolicy(Policies.AdminOrManagerPolicy, p => p.RequireRole(Roles.AdminGroupName, Roles.ManagerGroupName));
 });
-
 
 /* **************************************************** */
 
 var app = builder.Build();
+
+// Initialize database: apply migrations and seed default roles on first start
+using (var loggerFactory = LoggerFactory.Create(logging => logging.AddSerilog()))
+{
+    await DbInitializer.InitializeAsync(app.Services, loggerFactory.CreateLogger("DbInitializer"));
+}
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())

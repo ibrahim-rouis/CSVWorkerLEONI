@@ -50,7 +50,7 @@ namespace CSVWorker.Controllers
 
             try
             {
-                await _service.SaveAsync(model, User.Identity?.Name);
+                await _service.SaveAsync(model);
                 return RedirectToAction(nameof(Index));
             }
             catch (CSVWorkerException ex)
@@ -91,7 +91,7 @@ namespace CSVWorker.Controllers
 
             try
             {
-                await _service.UpdateAsync(model, User.Identity?.Name);
+                await _service.UpdateAsync(model);
                 return RedirectToAction(nameof(Index));
             }
             catch (CSVWorkerException ex)
@@ -131,7 +131,7 @@ namespace CSVWorker.Controllers
 
             try
             {
-                await _service.UpdatePorscheDatabase(model, User.Identity?.Name, cancellationToken);
+                await _service.UpdatePorscheDatabase(model, cancellationToken);
                 model.Success = true;
                 model.ErrorMessage = null;
                 return View(model);

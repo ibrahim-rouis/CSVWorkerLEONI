@@ -4,6 +4,8 @@
 @{
     TempData.Keep();
     string? currentPage = ViewContext.HttpContext.Request.Path;
+    bool isAdmin = (await AuthorizationService.AuthorizeAsync(User, null, Policies.AdminPolicy)).Succeeded;
+    bool isAdminOrManager = (await AuthorizationService.AuthorizeAsync(User, null, Policies.AdminOrManagerPolicy)).Succeeded;
 }
 
 <!-- Menu -->
@@ -32,9 +34,9 @@
     @* ! menu-items *@
     <ul class="menu-inner py-1">
 
-        @if ((await AuthorizationService.AuthorizeAsync(User, null, Policies.AdminPolicy)).Succeeded)
+        @if (isAdmin)
         {
-            <!-- Misc -->
+            <!-- Admin menu -->
             <li class="menu-header small text-uppercase"><span class="menu-header-text">Admin</span></li>
 
             <li class='menu-item@(currentPage.StartsWith("/LogViewer") ? " active" : "")'>
@@ -48,7 +50,13 @@
                     <div class="text-truncate">Logs Viewer</div>
                 </a>
             </li>
-            <!--/ Misc -->
+            <li class='menu-item@(currentPage.StartsWith("/Users") ? " active" : "")'>
+                <a asp-controller="Users" asp-action="Index" class="menu-link">
+                    <i class="menu-icon icon-base bx bx-user"></i>
+                    <div class="text-truncate">Users Manager</div>
+                </a>
+            </li>
+            <!--/  Admin menu  -->
         }
 
         <!-- Databases -->

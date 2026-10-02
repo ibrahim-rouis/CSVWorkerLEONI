@@ -6,21 +6,30 @@
     <dl>
         <dt class="fs-4 text-black my-2"><i class="bx bx-pencil text-primary fs-4"></i> Project Goal</dt>
         <dd>
-            The application goal was to replace old and outdated Excel macros that were used to convert CSV files. The application provides a user-friendly interface for executing macros managing the databases.
+            This application replaces the old, outdated Excel macros that were used to convert CSV files. It provides a user-friendly interface for running these conversions and managing the underlying databases.
         </dd>
 
         <dt class="fs-4 text-black my-2"><i class="bx bx-data text-primary fs-4"></i> FORM IMDS Database</dt>
-        <dd>This database containes information about materials and their corresponding Nodes from IMDS. You can View, Create, Edit or delete records there.</dd>
-        <dd>The "Update from A2 + LPCP" button takes you to the form where you input LPCP csv and A2 csv datasets to initialize or update the database. You can also add records manually with "Add new record"</dd>
-        
+        <dd>
+            This database stores materials and their corresponding IMDS nodes. You can view, create, edit, and delete records.
+            <ul>
+                <li>Update from A2 + LPCP: opens a form where you upload the LPCP and A2 CSV datasets to initialize or update the database.</li>
+                <li>Add new record: lets you add entries manually.</li>
+            </ul>
+        </dd>
         <dt class="fs-4 text-black my-2"><i class="bx bx-data text-primary fs-4"></i> Porsche Database</dt>
-        <dd>This database containes information about materials and their corresponding Article Names and Cross-sec. You can View, Create, Edit or delete records there.</dd>
-        <dd>The "Update from CSV" button takes you to the form where you input Porsche CSV database (exported from Porsche Excel file) to initialize or update the database. You can also add/edit records manually with "Add new record"</dd>
-        
+        <dd>
+            This database stores materials and their corresponding article names and cross-sections. You can view, create, edit, and delete records.
+            <ul>
+                <li>Update from CSV: opens a form where you upload the Porsche CSV database (exported from the Porsche Excel file) to initialize or update it.</li>
+                <li>Add new record: lets you add entries manually.</li>
+            </ul>
+        </dd>
+
         <dt class="fs-4 text-black my-2"><i class="bx bx-wrench text-primary fs-4"></i> FORS Macro</dt>
-        <dd>This macro transform FORS BOMs CSV files to IMDS BOMs CVS files. All output files are bundled into a zip file and downloaded. If there are missing node, you'll find them in missing_nodes.csv file inside the output zip.</dd>
+        <dd>This macro converts FORS BOM CSV files into IMDS BOM CSV files. All output files are bundled into a ZIP archive and downloaded automatically. Any nodes that could not be matched are listed in <i>missing_nodes.csv</i> inside the archive.</dd>
         
         <dt class="fs-4 text-black my-2"><i class="bx bx-wrench text-primary fs-4"></i> Porsche Macro</dt>
-        <dd>This macro transform IMDS BOMs CSV files to Porsche IMDS BOMs CVS files. All output files are bundled into a zip file and downloaded. If there are missing article names, you'll find them in missing_articles.csv file inside the output zip.</dd>
+        <dd>This macro converts IMDS BOM CSV files into Porsche specific IMDS BOM CSV files. All output files are bundled into a ZIP archive and downloaded automatically. Any article names that could not be matched are listed in <i>missing_articles.csv</i> inside the archive.</dd>
     </dl>
 </div>
