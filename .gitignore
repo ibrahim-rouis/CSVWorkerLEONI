@@ -366,3 +366,5 @@ FodyWeavers.xsd
 serilog/
 Properties/ServiceDependencies/CSVWorker20260412172834 - Web Deploy/
 /data.db
+/data.db-shm
+/data.db-wal
