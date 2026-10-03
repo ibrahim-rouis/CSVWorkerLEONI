@@ -184,6 +184,7 @@ namespace CSVWorker.Services
             if (!user.Roles.Any(r => r.Id == roleId))
             {
                 user.Roles.Add(role);
+                user.LastUpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
         }
@@ -209,6 +210,7 @@ namespace CSVWorker.Services
             if (user.Roles.Any(r => r.Id == roleId))
             {
                 user.Roles.Remove(role);
+                user.LastUpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
         }
@@ -249,6 +251,8 @@ namespace CSVWorker.Services
                     }
                 }
             }
+
+            user.LastUpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
     }
