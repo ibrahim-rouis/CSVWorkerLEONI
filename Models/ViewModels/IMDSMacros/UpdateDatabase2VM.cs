@@ -2,10 +2,13 @@
 
 namespace CSVWorker.Models.ViewModels.IMDSMacros
 {
-    public class UpdateDatabase2VM
+    public class UpdateDatabaseVM
     {
         [Required]
-        public IFormFile? CsvFile { get; set; }
+        public IFormFile? LPCPFile { get; set; }
+
+        [Required]
+        public IFormFile? A2File { get; set; }
 
         public string? ErrorMessage { get; set; }
 

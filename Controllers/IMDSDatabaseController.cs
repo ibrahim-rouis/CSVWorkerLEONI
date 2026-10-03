@@ -151,6 +151,49 @@ namespace CSVWorker.Controllers
             }
         }
 
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
+        public IActionResult UpdateDatabase2()
+        {
+            _logger.LogInformation("IMDSDatabase UpdateDatabase2 page accessed by user {Name}.", User.Identity?.Name);
+            return View(new UpdateDatabase2VM());
+        }
+
+        [HttpPost]
+        // The default request size limit in ASP.NET Core is 30 MB, which may not be sufficient for large CSV files.
+        // The following attributes increase the limits to 100 MB.
+        [RequestSizeLimit(104857600)] // Bump payload limit to 100 MB
+        [RequestFormLimits(MultipartBodyLengthLimit = 104857600)] // Bump form upload limit to 100 MB
+        [ValidateAntiForgeryToken]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
+        public async Task<IActionResult> UpdateDatabase2(UpdateDatabase2VM model, CancellationToken cancellationToken)
+        {
+            _logger.LogInformation("IMDSDatabase UpdateDatabase attempt by user {Name} with CSVfile={CsvFileName}.", User.Identity?.Name, model.CsvFile?.FileName);
+            if (!ModelState.IsValid)
+            {
+                model.ErrorMessage = "Please fill all required fields.";
+                return View(model);
+            }
+            if (!CsvHelper.IsValidCSV(model.CsvFile))
+            {
+                model.ErrorMessage = "Please select a valid backup CSV file.";
+                return View(model);
+            }
+
+            try
+            {
+                await _service.UpdateDatabaseFromBackup(model, cancellationToken);
+                model.Success = true;
+                model.ErrorMessage = null;
+                return View(model);
+            }
+            catch (CSVWorkerException e)
+            {
+                model.Success = false;
+                model.ErrorMessage = e.Message;
+                return View(model);
+            }
+        }
+
         // details
         public async Task<IActionResult> Details(long id)
         {

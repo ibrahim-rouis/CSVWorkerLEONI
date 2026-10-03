@@ -64,7 +64,7 @@ namespace CSVWorker.Services
             };
 
             // Create a ZIP archive in memory and add the generated CSV files as an entry.
-            // The ZIP file will contain one CSV file with the IMDS data, 
+            // The ZIP file will contain CSV files with the IMDS data, 
             // and if there are missing nodes, another CSV file with the missing nodes data.
             var zipStream = new MemoryStream();
             using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Update, true))
@@ -316,7 +316,13 @@ namespace CSVWorker.Services
             return zipStream.ToArray();
         }
 
-
+        /// <summary>
+        /// Generates IMDS-compliant Porsche-specific CSV files from the provided IMDS BOM CSV files and returns them as a ZIP archive.
+        /// </summary>
+        /// <param name="model">The model containing the list of IMDS BOM CSV files to process.</param>
+        /// <param name="cancellationToken">A cancellation token to monitor for cancellation requests.</param>
+        /// <returns>A byte array representing the ZIP archive containing the generated IMDS CSV files.</returns>
+        /// <exception cref="CSVWorkerArgumentException">Thrown when the input model is missing or contains invalid CSV files.</exception>
         public async Task<byte[]> IMDSBomToPorscheIMDS(IMDSBomToPorscheIMDS model, CancellationToken cancellationToken)
         {
             if (model.CsvFiles == null || !model.CsvFiles.Any())
@@ -343,7 +349,7 @@ namespace CSVWorker.Services
 
 
             // Create a ZIP archive in memory and add the generated CSV files as an entry.
-            // The ZIP file will contain one CSV file with the IMDS data, 
+            // The ZIP file will contain CSV files with the IMDS data, 
             // and if there are missing nodes, another CSV file with the missing nodes data.
             var zipStream = new MemoryStream();
             using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Update, true))

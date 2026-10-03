@@ -333,12 +333,12 @@ namespace CSVWorker.Services
             _context.ChangeTracker.AutoDetectChangesEnabled = false; // Speeds up large inserts
             try
             {
-                if (recordsToAdd.Any())
+                if (recordsToAdd.Count != 0)
                 {
                     await _context.IMDSDatabase.AddRangeAsync(recordsToAdd);
                 }
 
-                if (recordsToUpdate.Any())
+                if (recordsToUpdate.Count != 0)
                 {
                     _context.IMDSDatabase.UpdateRange(recordsToUpdate);
                 }
@@ -351,6 +351,200 @@ namespace CSVWorker.Services
             }
 
             _logger.LogDebug("Update IMDS Database finished.");
+        }
+
+        /// <summary>
+        /// Updates the database by processing and merging data from CSV backup file
+        /// </summary>
+        /// <param name="model">The view model containing the CSV file to process.</param>
+        /// <param name="cancellationToken">A token to monitor for cancellation requests.</param>
+        /// <exception cref="CSVWorkerArgumentException">Thrown when CSV file is null.</exception>
+        /// <exception cref="CSVWorkerInvalidDataException">Thrown when the header of the file is invalid or empty.</exception>
+        public async Task UpdateDatabaseFromBackup(UpdateDatabase2VM model, CancellationToken cancellationToken)
+        {
+            if (model.CsvFile == null)
+            {
+                throw new CSVWorkerArgumentException("Input must not be null. Usually it must be validated in controller before sending to service for processing.");
+            }
+
+            _logger.LogDebug("UpdateDatabaseFromBackup started. Backup CSV file={BackupCSVfileName}", model.CsvFile.FileName);
+
+            // Backup CSV database indexes
+            int databaseNodeIdIndex;
+            int databasePartNumberIndex;
+            int databaseForsPNIndex;
+            int databaseSigipPNIndex;
+            int databaseVisualPNIndex;
+            int databaseWgkPNIndex;
+
+            var backupCSVDatabase = new List<ForsDbCSVRecord>();
+
+            using (var stream = model.CsvFile.OpenReadStream())
+            {
+                using (var readerRaw = new StreamReader(stream))
+                {
+                    // Read the entire CSV content as a string.
+                    var csvString = await readerRaw.ReadToEndAsync(cancellationToken);
+
+                    // Normalize the CSV string to ensure no row is split into multiple lines
+                    // due to embedded line breaks within quoted fields.
+                    var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
+
+                    // Use StringReader to read the normalized CSV string line by line.
+                    using var reader = new StringReader(normalizedCsvString);
+
+                    /** Read header **/
+                    var headerLine = await reader.ReadLineAsync(cancellationToken);
+                    if (string.IsNullOrEmpty(headerLine))
+                    {
+                        throw new CSVWorkerInvalidDataException("Database file header is invalid or empty.");
+                    }
+
+                    // Detect delimiter (it is usually ';' but we want to be sure, and handle cases where it can be ',').
+                    var delimiter = CsvHelper.DetectDelimiter(headerLine);
+
+                    // split header line into columns
+                    var headerRow = CsvHelper.ParseLine(headerLine, delimiter);
+                    if (headerRow == null || headerRow.Length == 0)
+                    {
+                        throw new CSVWorkerInvalidDataException("Database CSV file header is invalid or empty.");
+                    }
+
+
+                    // Get required column indexes by header names.
+                    databaseNodeIdIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Node ID", "Node" });
+                    databasePartNumberIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Item- /Mat.-No.", "PART/ITEM NO/", "PART/ITEM NO/.", "LEONI Part Number" });
+                    databaseForsPNIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "FORS PN", "FORS" });
+                    databaseSigipPNIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "SIGIP PN", "SIGIP" });
+                    databaseVisualPNIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "Visual PN", "Visual" });
+                    databaseWgkPNIndex = CsvHelper.GetRequiredColumnIndex(headerRow, new[] { "WGK", "WGK PN" });
+
+                    /** Finish reading header **/
+
+                    // Read the file line by line asynchronously and add to database list
+                    string? line;
+                    while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+                    {
+                        var row = CsvHelper.ParseLine(line, delimiter);
+                        if (row != null && !string.IsNullOrEmpty(row[databasePartNumberIndex]))
+                        {
+                            backupCSVDatabase.Add(new ForsDbCSVRecord
+                            {
+                                NodeId = row[databaseNodeIdIndex].Trim(),
+                                PartNumber = row[databasePartNumberIndex].Trim(),
+                                ForsPN = row[databaseForsPNIndex].Trim(),
+                                SIGIPPN = row[databaseSigipPNIndex].Trim(),
+                                VisualPN = row[databaseVisualPNIndex].Trim(),
+                                WGK = row[databaseWgkPNIndex].Trim()
+                            });
+                        }
+                    }
+                }
+            }
+
+            /** Finish loading backup Database **/
+
+            // Cleanup duplicates from CSV records based on Partnumber
+            backupCSVDatabase = [.. backupCSVDatabase
+                .GroupBy(r => new
+                {
+                    PartNumber = r.PartNumber?.Trim(),
+                    ForsPN = r.ForsPN?.Trim(),
+                    SIGIPPN = r.SIGIPPN?.Trim(),
+                    VisualPN = r.VisualPN?.Trim(),
+                    WGK = r.WGK?.Trim()
+                })
+                .Select(g => g.First())];
+
+            _logger.LogDebug($"There are {backupCSVDatabase.Count} unique rows in Porsche CSV database.");
+
+            var recordsToAdd = new List<IMDSDatabaseRecord>();
+            var recordsToUpdate = new List<IMDSDatabaseRecord>();
+
+            // Load whole IMDS database into memory for faster lookups during processing.
+            var _existingIMDSRecords = await _context.IMDSDatabase.ToListAsync(cancellationToken);
+
+            // helper
+            string Normalize(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : s.Trim();
+            string BuildKey(string? pn, string? fors, string? sigip, string? visual, string? wgk)
+                => $"{Normalize(pn)}|{Normalize(fors)}|{Normalize(sigip)}|{Normalize(visual)}|{Normalize(wgk)}";
+
+            var existingLookup = _existingIMDSRecords
+                .GroupBy(e => BuildKey(e.PartNumber, e.ForsPN, e.SIGIPPN, e.VisualPN, e.WGK))
+                .ToDictionary(
+                    g => g.Key,
+                    g => g.OrderByDescending(e => e.LastUpdatedAt).First()
+                );
+
+            foreach (var row in backupCSVDatabase)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+
+                // Skip if all properties in record are null or empty
+                if (string.IsNullOrEmpty(row.PartNumber)
+                    && string.IsNullOrEmpty(row.ForsPN)
+                    && string.IsNullOrEmpty(row.SIGIPPN)
+                    && string.IsNullOrEmpty(row.VisualPN)
+                    && string.IsNullOrEmpty(row.WGK))
+                {
+                    continue;
+                }
+
+                var key = BuildKey(row.PartNumber, row.ForsPN, row.SIGIPPN, row.VisualPN, row.WGK);
+
+                if (existingLookup.TryGetValue(key, out var exisitingRecord))
+                {
+                    // Only update if nodeID changed
+                    if (exisitingRecord.NodeID != row.NodeId)
+                    {
+                        exisitingRecord.NodeID = row.NodeId;
+                        exisitingRecord.LastUpdatedAt = DateTime.UtcNow;
+
+                        recordsToUpdate.Add(exisitingRecord);
+                    }
+                }
+                else
+                {
+                    // Add new record
+                    var newRecord = new IMDSDatabaseRecord
+                    {
+                        PartNumber = row.PartNumber,
+                        ForsPN = row.ForsPN,
+                        SIGIPPN = row.SIGIPPN,
+                        VisualPN = row.VisualPN,
+                        WGK = row.WGK,
+                        NodeID = row.NodeId,
+                        CreatedAt = DateTime.UtcNow,
+                        LastUpdatedAt = DateTime.UtcNow,
+                    };
+
+                    recordsToAdd.Add(newRecord);
+                }
+            }
+
+            // Batch Save
+            _context.ChangeTracker.AutoDetectChangesEnabled = false; // Speeds up large inserts
+            try
+            {
+                if (recordsToAdd.Count != 0)
+                {
+                    await _context.IMDSDatabase.AddRangeAsync(recordsToAdd);
+                }
+
+                if (recordsToUpdate.Count != 0)
+                {
+                    _context.IMDSDatabase.UpdateRange(recordsToUpdate);
+                }
+
+                await _context.SaveChangesAsync();
+            }
+            finally
+            {
+                _context.ChangeTracker.AutoDetectChangesEnabled = true;
+            }
+
+
+            _logger.LogDebug("UpdateDatabaseFromBackup finished.");
         }
 
         // Get by ID
