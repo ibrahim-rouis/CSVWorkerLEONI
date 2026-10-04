@@ -1,12 +1,13 @@
 ﻿using CSVWorker.Models;
 using CSVWorker.Models.Entities;
+using CSVWorker.Security;
 using Microsoft.EntityFrameworkCore;
 
 namespace CSVWorker.Data
 {
     public static class DbInitializer
     {
-        private static readonly string[] DefaultRoles = ["Admin", "Manager"];
+        private static readonly string[] DefaultRoles = [Roles.AdminGroupName, Roles.ManagerGroupName];
 
         public static async Task InitializeAsync(IServiceProvider services, ILogger logger)
         {
