@@ -61,10 +61,10 @@ namespace CSVWorker.Services
 
                     // Normalize the CSV string to ensure no row is split into multiple lines
                     // due to embedded line breaks within quoted fields.
-                    var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
+                    csvString = CsvHelper.NormalizeCsvString(csvString);
 
                     // Use StringReader to read the normalized CSV string line by line.
-                    using var reader = new StringReader(normalizedCsvString);
+                    using var reader = new StringReader(csvString);
 
                     /** Read header **/
                     var headerLine = await reader.ReadLineAsync(cancellationToken);
@@ -128,7 +128,7 @@ namespace CSVWorker.Services
             var recordsToUpdate = new List<IMDSPorscheDatabaseRecord>();
 
             // Load whole Porsche IMDS database into memory for faster lookups during processing.
-            var _existingPorscheIMDSRecords = await _context.IMDSPorscheDatabase.ToListAsync(cancellationToken);
+            var _existingPorscheIMDSRecords = await _context.IMDSPorscheDatabase.AsNoTracking().ToListAsync(cancellationToken);
 
             // helper
             string Normalize(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : s.Trim();
@@ -387,6 +387,15 @@ namespace CSVWorker.Services
             var outputBytes = await CsvHelper.ConvertListToCsv(exportedDatabase, ';');
 
             return outputBytes;
+        }
+
+        // Clear database
+        public async Task ClearDatabaseAsync()
+        {
+            await _context.IMDSPorscheDatabase.ExecuteDeleteAsync();
+
+            // Reset the ID counter to 1
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence WHERE name = 'IMDSPorscheDatabase';");
         }
     }
 

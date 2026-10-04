@@ -22,10 +22,11 @@
                 <form asp-action="UpdatePorscheDatabase" method="post" enctype="multipart/form-data" id="download-form">
                     <div class="mb-6">
                         <label class="form-label fs-5" asp-for="PorscheCSV">Porsche CSV</label>
+                        <p>Porsche CSV is the file you exported from Porsha_IMDS_Macro.xlsm or from this database.</p>
                         <input asp-for="PorscheCSV" type="file" class="form-control" accept=".csv,text/csv" required />
                         <span asp-validation-for="PorscheCSV" class="text-danger"></span>
                     </div>
-                    <button type="submit" class="btn btn-primary btn-lg px-10">Start</button>
+                    <button type="submit" class="btn btn-primary btn-lg px-10">Update</button>
 
                     @if (Model?.Success == false && !string.IsNullOrEmpty(Model?.ErrorMessage))
                     {
@@ -35,8 +36,8 @@
                     @if (Model?.Success == true)
                     {
                         <!-- Success Message (hidden by default) -->
-                        <div class="alert alert-success mt-2 d-none">
-                            File successfully downloaded!
+                        <div class="alert alert-success mt-2">
+                            Database successfully updated!
                         </div>
                     }
                 </form>

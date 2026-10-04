@@ -72,10 +72,10 @@ namespace CSVWorker.Services
 
                     // Normalize the CSV string to ensure no row is split into multiple lines
                     // due to embedded line breaks within quoted fields.
-                    var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
+                    csvString = CsvHelper.NormalizeCsvString(csvString);
 
                     // Use StringReader to read the normalized CSV string line by line.
-                    using var normalizedReader = new StringReader(normalizedCsvString);
+                    using var normalizedReader = new StringReader(csvString);
 
                     /** Read header **/
 
@@ -141,10 +141,10 @@ namespace CSVWorker.Services
 
                     // Normalize the CSV string to ensure no row is split into multiple lines
                     // due to embedded line breaks within quoted fields.
-                    var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
+                    csvString = CsvHelper.NormalizeCsvString(csvString);
 
                     // Use StringReader to read the normalized CSV string line by line.
-                    using var normalizedReader = new StringReader(normalizedCsvString);
+                    using var normalizedReader = new StringReader(csvString);
 
                     /** Read header **/
 
@@ -261,7 +261,7 @@ namespace CSVWorker.Services
             var recordsToUpdate = new List<IMDSDatabaseRecord>();
 
             // Load whole IMDS database into memory for faster lookups during processing.
-            var _existingIMDSRecords = await _context.IMDSDatabase.ToListAsync(cancellationToken);
+            var _existingIMDSRecords = await _context.IMDSDatabase.AsNoTracking().ToListAsync(cancellationToken);
 
             // helper
             string Normalize(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : s.Trim();
@@ -388,10 +388,10 @@ namespace CSVWorker.Services
 
                     // Normalize the CSV string to ensure no row is split into multiple lines
                     // due to embedded line breaks within quoted fields.
-                    var normalizedCsvString = CsvHelper.NormalizeCsvString(csvString);
+                    csvString = CsvHelper.NormalizeCsvString(csvString);
 
                     // Use StringReader to read the normalized CSV string line by line.
-                    using var reader = new StringReader(normalizedCsvString);
+                    using var reader = new StringReader(csvString);
 
                     /** Read header **/
                     var headerLine = await reader.ReadLineAsync(cancellationToken);
@@ -462,7 +462,7 @@ namespace CSVWorker.Services
             var recordsToUpdate = new List<IMDSDatabaseRecord>();
 
             // Load whole IMDS database into memory for faster lookups during processing.
-            var _existingIMDSRecords = await _context.IMDSDatabase.ToListAsync(cancellationToken);
+            var _existingIMDSRecords = await _context.IMDSDatabase.AsNoTracking().ToListAsync(cancellationToken);
 
             // helper
             string Normalize(string? s) => string.IsNullOrWhiteSpace(s) ? string.Empty : s.Trim();
@@ -542,7 +542,6 @@ namespace CSVWorker.Services
             {
                 _context.ChangeTracker.AutoDetectChangesEnabled = true;
             }
-
 
             _logger.LogDebug("UpdateDatabaseFromBackup finished.");
         }
@@ -793,6 +792,15 @@ namespace CSVWorker.Services
                    !string.IsNullOrWhiteSpace(record.SIGIPPN) ||
                    !string.IsNullOrWhiteSpace(record.VisualPN) ||
                    !string.IsNullOrWhiteSpace(record.WGK);
+        }
+
+        // Clear database
+        public async Task ClearDatabaseAsync()
+        {
+            await _context.IMDSDatabase.ExecuteDeleteAsync();
+
+            // Reset the ID counter to 1
+            await _context.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence WHERE name = 'IMDSDatabase';");
         }
     }
 }

@@ -202,5 +202,26 @@ namespace CSVWorker.Controllers
 
             return File(outputBytes, "text/csv", fileName);
         }
+
+        // delete All
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
+        public IActionResult DeleteAll()
+        {
+            _logger.LogInformation("IMDSPorcheDatabase Clear Database page accessed by user {Name}.", User.Identity?.Name);
+            return View();
+        }
+
+
+        [HttpPost, ActionName("DeleteAll")]
+        [ValidateAntiForgeryToken]
+        [Authorize(Policy = Policies.AdminOrManagerPolicy)]
+        public async Task<IActionResult> ConfirmDeleteAll()
+        {
+            _logger.LogInformation("IMDSDatabase Clear attempt by user {Name}.", User.Identity?.Name);
+            await _service.ClearDatabaseAsync();
+            _logger.LogInformation("IMDSDatabase cleared by user {Name}.", User.Identity?.Name);
+
+            return RedirectToAction(nameof(Index));
+        }
     }
 }
