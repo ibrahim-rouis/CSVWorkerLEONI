@@ -140,8 +140,11 @@ namespace CSVWorker.Libs
             char delimiter = ',',
             CancellationToken cancellationToken = default)
         {
+            // Explicitly encode the string using Windows-1252
+            var encoding = Encoding.GetEncoding(1252);
+
             using var memoryStream = new MemoryStream();
-            using var streamWriter = new StreamWriter(memoryStream);
+            using var streamWriter = new StreamWriter(memoryStream, encoding);
 
             foreach (var row in data)
             {

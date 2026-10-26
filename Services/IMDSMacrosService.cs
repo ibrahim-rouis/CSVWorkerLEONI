@@ -3,6 +3,7 @@ using CSVWorker.Libs;
 using CSVWorker.Models.DTO;
 using CSVWorker.Models.ViewModels.IMDSMacros;
 using System.IO.Compression;
+using System.Text;
 
 namespace CSVWorker.Services
 {
@@ -63,11 +64,14 @@ namespace CSVWorker.Services
                 (["PART/ITEM NO/", "Node ID"])
             };
 
+            // Explicitly use Windows-1252 (Code Page 1252)
+            var encoding = Encoding.GetEncoding(1252);
+
             // Create a ZIP archive in memory and add the generated CSV files as an entry.
             // The ZIP file will contain CSV files with the IMDS data, 
             // and if there are missing nodes, another CSV file with the missing nodes data.
             var zipStream = new MemoryStream();
-            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Update, true))
+            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Update, true, encoding))
             {
 
                 /** Start processing FORS BOM files **/
@@ -83,7 +87,7 @@ namespace CSVWorker.Services
                     // Parse FORS BOM CSV
                     using (var stream = file.OpenReadStream())
                     {
-                        using (var reader = new StreamReader(stream))
+                        using (var reader = new StreamReader(stream, encoding))
                         {
                             bool isValidForsBom = false;
                             // skip fist 12 (0 -> 11) lines of the file as they usually contain metadata and other non-tabular information,
@@ -347,12 +351,14 @@ namespace CSVWorker.Services
                 (["PART/ITEM NO/", "Article Name"])
             };
 
+            // Explicitly use Windows-1252 (Code Page 1252)
+            var encoding = Encoding.GetEncoding(1252);
 
             // Create a ZIP archive in memory and add the generated CSV files as an entry.
             // The ZIP file will contain CSV files with the IMDS data, 
             // and if there are missing nodes, another CSV file with the missing nodes data.
             var zipStream = new MemoryStream();
-            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Update, true))
+            using (var archive = new ZipArchive(zipStream, ZipArchiveMode.Update, true, encoding))
             {
                 /** Start processing IMDS BOM files **/
                 foreach (var file in model.CsvFiles)
@@ -369,7 +375,7 @@ namespace CSVWorker.Services
 
                     using (var stream = file.OpenReadStream())
                     {
-                        using (var reader = new StreamReader(stream))
+                        using (var reader = new StreamReader(stream, encoding))
                         {
                             string? line;
 

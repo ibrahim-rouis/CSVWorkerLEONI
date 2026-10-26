@@ -20,6 +20,6 @@ namespace CSVWorker.Models.Entities
         public DateTime CreatedAt { get; set; }
 
         // UpdatedAt timestamp for the user record
-        public DateTime? LastUpdatedAt { get; set; }
+        public DateTime LastUpdatedAt { get; set; }
     }
 }

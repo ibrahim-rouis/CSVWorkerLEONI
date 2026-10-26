@@ -19,6 +19,6 @@ namespace CSVWorker.Models.Entities
         public string? CrossSec { get; set; }
 
         public DateTime CreatedAt { get; set; }
-        public DateTime? LastUpdatedAt { get; set; }
+        public DateTime LastUpdatedAt { get; set; }
     }
 }

@@ -250,7 +250,7 @@ namespace CSVWorker.Controllers
             var dateString = DateTime.Now.ToString("yyyy-MM-dd_HHmmss");
             var fileName = $"FORS_IMDS_Database_{dateString}.csv";
 
-            return File(outputBytes, "text/csv", fileName);
+            return File(outputBytes, "text/csv; charset=windows-1252", fileName);
         }
 
         // delete All
@@ -265,10 +265,10 @@ namespace CSVWorker.Controllers
         [HttpPost, ActionName("DeleteAll")]
         [ValidateAntiForgeryToken]
         [Authorize(Policy = Policies.AdminOrManagerPolicy)]
-        public async Task<IActionResult> ConfirmDeleteAll()
+        public async Task<IActionResult> ConfirmDeleteAll(CancellationToken cancellationToken)
         {
             _logger.LogInformation("IMDSDatabase Clear attempt by user {Name}.", User.Identity?.Name);
-            await _service.ClearDatabaseAsync();
+            await _service.ClearDatabaseAsync(cancellationToken);
             _logger.LogInformation("IMDSDatabase cleared by user {Name}.", User.Identity?.Name);
 
             return RedirectToAction(nameof(Index));

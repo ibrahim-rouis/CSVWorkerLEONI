@@ -43,7 +43,6 @@ namespace CSVWorker.Services
             Role newRole = new Role
             {
                 Name = roleName,
-                CreatedAt = DateTime.UtcNow,
             };
             _context.Roles.Add(newRole);
             await _context.SaveChangesAsync();

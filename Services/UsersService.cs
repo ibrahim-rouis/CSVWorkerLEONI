@@ -63,7 +63,6 @@ namespace CSVWorker.Services
                 throw new Exception($"User with name {user.Name} already exists.");
             }
 
-            user.CreatedAt = DateTime.UtcNow;
             _context.Users.Add(user);
             await _context.SaveChangesAsync();
 
@@ -78,7 +77,6 @@ namespace CSVWorker.Services
             User newUser = new User
             {
                 Name = userName,
-                CreatedAt = DateTime.UtcNow,
             };
 
             newUser = await SaveAsync(newUser);
@@ -109,7 +107,6 @@ namespace CSVWorker.Services
             }
 
             existingUser.Name = user.Name;
-            existingUser.LastUpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
             return existingUser;
@@ -184,7 +181,6 @@ namespace CSVWorker.Services
             if (!user.Roles.Any(r => r.Id == roleId))
             {
                 user.Roles.Add(role);
-                user.LastUpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
         }
@@ -210,7 +206,6 @@ namespace CSVWorker.Services
             if (user.Roles.Any(r => r.Id == roleId))
             {
                 user.Roles.Remove(role);
-                user.LastUpdatedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
             }
         }
@@ -252,7 +247,6 @@ namespace CSVWorker.Services
                 }
             }
 
-            user.LastUpdatedAt = DateTime.UtcNow;
             await _context.SaveChangesAsync();
         }
     }

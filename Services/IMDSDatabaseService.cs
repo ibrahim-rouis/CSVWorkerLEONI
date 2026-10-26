@@ -7,6 +7,7 @@ using CSVWorker.Models.Entities;
 using CSVWorker.Models.ViewModels.IMDSMacros;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace CSVWorker.Services
@@ -60,12 +61,15 @@ namespace CSVWorker.Services
             int a2PartNumberIndex;
             int a2NodeIdIndex;
 
+            // Explicitly use Windows-1252 (Code Page 1252)
+            var encoding = Encoding.GetEncoding(1252);
+
             /** Load LPCP and A2 CSV files **/
 
             /** Load LPCP **/
             using (var stream = model.LPCPFile.OpenReadStream())
             {
-                using (var readerRaw = new StreamReader(stream))
+                using (var readerRaw = new StreamReader(stream, encoding))
                 {
                     // Read the entire LPCP CSV content as a string.
                     var csvString = await readerRaw.ReadToEndAsync();
@@ -134,7 +138,7 @@ namespace CSVWorker.Services
             /** Load A2 **/
             using (var stream = model.A2File.OpenReadStream())
             {
-                using (var reader = new StreamReader(stream))
+                using (var reader = new StreamReader(stream, encoding))
                 {
                     // Read the entire LPCP CSV content as a string.
                     var csvString = await reader.ReadToEndAsync();
@@ -305,7 +309,6 @@ namespace CSVWorker.Services
                     if (exisitingRecord.NodeID != nodeID)
                     {
                         exisitingRecord.NodeID = nodeID;
-                        exisitingRecord.LastUpdatedAt = DateTime.UtcNow;
 
                         recordsToUpdate.Add(exisitingRecord);
                     }
@@ -321,8 +324,6 @@ namespace CSVWorker.Services
                         VisualPN = lpcpRow.VisualPN,
                         WGK = lpcpRow.WGK,
                         NodeID = nodeID,
-                        CreatedAt = DateTime.UtcNow,
-                        LastUpdatedAt = DateTime.UtcNow,
                     };
 
                     recordsToAdd.Add(newRecord);
@@ -379,9 +380,12 @@ namespace CSVWorker.Services
 
             var backupCSVDatabase = new List<ForsDbCSVRecord>();
 
+            // Explicitly use Windows-1252 (Code Page 1252)
+            var encoding = Encoding.GetEncoding(1252);
+
             using (var stream = model.CsvFile.OpenReadStream())
             {
-                using (var readerRaw = new StreamReader(stream))
+                using (var readerRaw = new StreamReader(stream, encoding))
                 {
                     // Read the entire CSV content as a string.
                     var csvString = await readerRaw.ReadToEndAsync(cancellationToken);
@@ -498,7 +502,6 @@ namespace CSVWorker.Services
                     if (exisitingRecord.NodeID != row.NodeId)
                     {
                         exisitingRecord.NodeID = row.NodeId;
-                        exisitingRecord.LastUpdatedAt = DateTime.UtcNow;
 
                         recordsToUpdate.Add(exisitingRecord);
                     }
@@ -514,8 +517,6 @@ namespace CSVWorker.Services
                         VisualPN = row.VisualPN,
                         WGK = row.WGK,
                         NodeID = row.NodeId,
-                        CreatedAt = DateTime.UtcNow,
-                        LastUpdatedAt = DateTime.UtcNow,
                     };
 
                     recordsToAdd.Add(newRecord);
@@ -665,9 +666,6 @@ namespace CSVWorker.Services
             record.WGK = record.WGK?.Trim();
             record.NodeID = record.NodeID?.Trim();
 
-            record.CreatedAt = DateTime.UtcNow;
-            record.LastUpdatedAt = DateTime.UtcNow;
-
             var entry = await _context.IMDSDatabase.AddAsync(record);
             await _context.SaveChangesAsync();
             return entry.Entity;
@@ -714,7 +712,6 @@ namespace CSVWorker.Services
             existingRecord.VisualPN = record.VisualPN?.Trim();
             existingRecord.WGK = record.WGK?.Trim();
             existingRecord.NodeID = record.NodeID?.Trim();
-            existingRecord.LastUpdatedAt = DateTime.UtcNow;
 
             _context.IMDSDatabase.Update(existingRecord);
             await _context.SaveChangesAsync();
@@ -795,12 +792,9 @@ namespace CSVWorker.Services
         }
 
         // Clear database
-        public async Task ClearDatabaseAsync()
+        public async Task ClearDatabaseAsync(CancellationToken cancellationToken)
         {
-            await _context.IMDSDatabase.ExecuteDeleteAsync();
-
-            // Reset the ID counter to 1
-            await _context.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence WHERE name = 'IMDSDatabase';");
+            await _context.IMDSDatabase.ExecuteDeleteAsync(cancellationToken);
         }
     }
 }

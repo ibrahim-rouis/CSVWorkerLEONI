@@ -9,6 +9,7 @@ using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Server.Kestrel.Core;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
+using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -29,10 +30,10 @@ builder.Services.AddSerilog((services, lc) => lc
 .ReadFrom.Configuration(builder.Configuration)
 .ReadFrom.Services(services));
 
-// Register the DbContext with the connection string and SQLite provider
-var connectionString = builder.Configuration.GetConnectionString("SqliteConnection");
+// Register the DbContext with the connection string and MySQL provider
+var connectionString = builder.Configuration.GetConnectionString("MySqlConnection");
 builder.Services.AddDbContext<CSVWorkerDBContext>(options =>
-    options.UseSqlite(connectionString));
+    options.UseMySql(connectionString, ServerVersion.AutoDetect(connectionString)));
 
 builder.Services.AddSingleton<IHttpContextAccessor, HttpContextAccessor>();
 
@@ -76,6 +77,9 @@ builder.Services.AddAuthorization(options =>
 });
 
 /* **************************************************** */
+
+// Register code pages to support Windows-1252 (Code Page 1252)
+Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
 var app = builder.Build();
 

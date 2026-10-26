@@ -3,6 +3,7 @@ using System;
 using CSVWorker.Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Metadata;
 using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
@@ -11,20 +12,26 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace CSVWorker.Migrations
 {
     [DbContext(typeof(CSVWorkerDBContext))]
-    [Migration("20261001201840_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20261026115138_Initial_Create")]
+    partial class Initial_Create
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
-            modelBuilder.HasAnnotation("ProductVersion", "8.0.31");
+            modelBuilder
+                .HasAnnotation("ProductVersion", "8.0.31")
+                .HasAnnotation("Relational:MaxIdentifierLength", 64);
+
+            MySqlModelBuilderExtensions.AutoIncrementColumns(modelBuilder);
 
             modelBuilder.Entity("CSVWorker.Models.Entities.IMDSDatabaseRecord", b =>
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -33,30 +40,46 @@ namespace CSVWorker.Migrations
 
                     b.Property<string>("ForsPN")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
 
-                    b.Property<DateTime?>("LastUpdatedAt")
-                        .HasColumnType("TEXT");
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("ForsPN"), "latin1");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlComputedColumn(b.Property<DateTime>("LastUpdatedAt"));
 
                     b.Property<string>("NodeID")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
+
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("NodeID"), "latin1");
 
                     b.Property<string>("PartNumber")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
+
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("PartNumber"), "latin1");
 
                     b.Property<string>("SIGIPPN")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
+
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("SIGIPPN"), "latin1");
 
                     b.Property<string>("VisualPN")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
+
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("VisualPN"), "latin1");
 
                     b.Property<string>("WGK")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
+
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("WGK"), "latin1");
 
                     b.HasKey("Id");
 
@@ -79,11 +102,15 @@ namespace CSVWorker.Migrations
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<string>("ArticleName")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
+
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("ArticleName"), "latin1");
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -92,18 +119,28 @@ namespace CSVWorker.Migrations
 
                     b.Property<string>("CrossSec")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
 
-                    b.Property<DateTime?>("LastUpdatedAt")
-                        .HasColumnType("TEXT");
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("CrossSec"), "latin1");
+
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlComputedColumn(b.Property<DateTime>("LastUpdatedAt"));
 
                     b.Property<string>("MaterialGroup")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
+
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("MaterialGroup"), "latin1");
 
                     b.Property<string>("PartNumber")
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
+
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("PartNumber"), "latin1");
 
                     b.HasKey("Id");
 
@@ -122,7 +159,9 @@ namespace CSVWorker.Migrations
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
@@ -132,7 +171,9 @@ namespace CSVWorker.Migrations
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
+
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("Name"), "latin1");
 
                     b.HasKey("Id");
 
@@ -146,20 +187,28 @@ namespace CSVWorker.Migrations
                 {
                     b.Property<long>("Id")
                         .ValueGeneratedOnAdd()
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlIdentityColumn(b.Property<long>("Id"));
 
                     b.Property<DateTime>("CreatedAt")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("timestamp")
                         .HasDefaultValueSql("CURRENT_TIMESTAMP");
 
-                    b.Property<DateTime?>("LastUpdatedAt")
-                        .HasColumnType("TEXT");
+                    b.Property<DateTime>("LastUpdatedAt")
+                        .ValueGeneratedOnAddOrUpdate()
+                        .HasColumnType("timestamp")
+                        .HasDefaultValueSql("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP");
+
+                    MySqlPropertyBuilderExtensions.UseMySqlComputedColumn(b.Property<DateTime>("LastUpdatedAt"));
 
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(255)
-                        .HasColumnType("TEXT");
+                        .HasColumnType("varchar(255)");
+
+                    MySqlPropertyBuilderExtensions.HasCharSet(b.Property<string>("Name"), "latin1");
 
                     b.HasKey("Id");
 
@@ -172,10 +221,10 @@ namespace CSVWorker.Migrations
             modelBuilder.Entity("RoleUser", b =>
                 {
                     b.Property<long>("RolesId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
 
                     b.Property<long>("UsersId")
-                        .HasColumnType("INTEGER");
+                        .HasColumnType("bigint");
 
                     b.HasKey("RolesId", "UsersId");
 

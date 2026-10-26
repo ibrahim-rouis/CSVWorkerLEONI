@@ -7,6 +7,7 @@ using CSVWorker.Models.Entities;
 using CSVWorker.Models.ViewModels.IMDSMacros;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
+using System.Text;
 using System.Text.RegularExpressions;
 
 namespace CSVWorker.Services
@@ -52,9 +53,12 @@ namespace CSVWorker.Services
 
             var porscheCSVDatabase = new List<PorscheCSVRecord>();
 
+            // Explicitly use Windows-1252 (Code Page 1252)
+            var encoding = Encoding.GetEncoding(1252);
+
             using (var stream = model.PorscheCSV.OpenReadStream())
             {
-                using (var readerRaw = new StreamReader(stream))
+                using (var readerRaw = new StreamReader(stream, encoding))
                 {
                     // Read the entire CSV content as a string.
                     var csvString = await readerRaw.ReadToEndAsync(cancellationToken);
@@ -155,7 +159,6 @@ namespace CSVWorker.Services
                     {
                         exisitingRecord.ArticleName = row.ArticleName;
                         exisitingRecord.CrossSec = row.CrossSec;
-                        exisitingRecord.LastUpdatedAt = DateTime.UtcNow;
 
                         recordsToUpdate.Add(exisitingRecord);
                     }
@@ -169,8 +172,6 @@ namespace CSVWorker.Services
                         ArticleName = row.ArticleName,
                         MaterialGroup = row.FORSMaterialClass,
                         CrossSec = row.CrossSec,
-                        CreatedAt = DateTime.UtcNow,
-                        LastUpdatedAt = DateTime.UtcNow,
                     };
 
                     recordsToAdd.Add(newRecord);
@@ -282,9 +283,6 @@ namespace CSVWorker.Services
             record.MaterialGroup = record.MaterialGroup?.Trim();
             record.CrossSec = record.CrossSec?.Trim();
 
-            record.CreatedAt = DateTime.UtcNow;
-            record.LastUpdatedAt = DateTime.UtcNow;
-
             var entry = await _context.IMDSPorscheDatabase.AddAsync(record);
             await _context.SaveChangesAsync();
             return entry.Entity;
@@ -325,7 +323,6 @@ namespace CSVWorker.Services
             existingRecord.ArticleName = record.ArticleName?.Trim();
             existingRecord.MaterialGroup = record.MaterialGroup?.Trim();
             existingRecord.CrossSec = record.CrossSec?.Trim();
-            existingRecord.LastUpdatedAt = DateTime.UtcNow;
 
             _context.IMDSPorscheDatabase.Update(existingRecord);
             await _context.SaveChangesAsync();
@@ -390,12 +387,9 @@ namespace CSVWorker.Services
         }
 
         // Clear database
-        public async Task ClearDatabaseAsync()
+        public async Task ClearDatabaseAsync(CancellationToken cancellationToken)
         {
-            await _context.IMDSPorscheDatabase.ExecuteDeleteAsync();
-
-            // Reset the ID counter to 1
-            await _context.Database.ExecuteSqlRawAsync("DELETE FROM sqlite_sequence WHERE name = 'IMDSPorscheDatabase';");
+            await _context.IMDSPorscheDatabase.ExecuteDeleteAsync(cancellationToken);
         }
     }
 

@@ -5,22 +5,10 @@ namespace CSVWorker.Models
 {
     public class CSVWorkerDBContext : DbContext
     {
-        public CSVWorkerDBContext(DbContextOptions<CSVWorkerDBContext> options) : base(options)
-        {
-            // Force the connection open so the setting applies to the session
-            Database.OpenConnection();
+        // Default encoding const
+        private const string DefaultEncoding = "latin1";
 
-            // 2. Set the desired limit (e.g., 500 MB limit which is 128000 pages in SQLite, 1 page = 4096 bytes)
-            Database.ExecuteSqlRaw("PRAGMA max_page_count = 128000;");
-
-            // Performance tuning
-            Database.ExecuteSqlRaw("PRAGMA journal_mode = WAL;");
-            Database.ExecuteSqlRaw("PRAGMA synchronous = NORMAL;");
-            Database.ExecuteSqlRaw("PRAGMA temp_store = MEMORY;");
-            Database.ExecuteSqlRaw("PRAGMA cache_size = -64000;");
-            Database.ExecuteSqlRaw("PRAGMA mmap_size = 268435456;");
-            Database.ExecuteSqlRaw("PRAGMA busy_timeout = 5000;");
-        }
+        public CSVWorkerDBContext(DbContextOptions<CSVWorkerDBContext> options) : base(options) { }
 
         public DbSet<IMDSDatabaseRecord> IMDSDatabase { get; set; }
 
@@ -32,6 +20,18 @@ namespace CSVWorker.Models
         protected override void OnModelCreating(ModelBuilder builder)
         {
             base.OnModelCreating(builder);
+
+            // Apply latin1 charset to all string properties across all entities
+            foreach (var entity in builder.Model.GetEntityTypes())
+            {
+                foreach (var property in entity.GetProperties())
+                {
+                    if (property.ClrType == typeof(string))
+                    {
+                        property.SetCharSet(DefaultEncoding);
+                    }
+                }
+            }
 
             builder.Entity<IMDSDatabaseRecord>(b =>
             {
@@ -58,11 +58,34 @@ namespace CSVWorker.Models
                 .HasMany(u => u.Roles)
                 .WithMany(u => u.Users);
 
-            // CreatedAt Configurations
+            //
+            // CreatedAt defaults
+            //
             builder.Entity<User>().Property(u => u.CreatedAt).HasColumnType("timestamp").HasDefaultValueSql("CURRENT_TIMESTAMP").ValueGeneratedOnAdd();
-            builder.Entity<Role>().Property(u => u.CreatedAt).HasColumnType("timestamp").HasDefaultValueSql("CURRENT_TIMESTAMP").ValueGeneratedOnAdd();
-            builder.Entity<IMDSDatabaseRecord>().Property(u => u.CreatedAt).HasColumnType("timestamp").HasDefaultValueSql("CURRENT_TIMESTAMP").ValueGeneratedOnAdd();
-            builder.Entity<IMDSPorscheDatabaseRecord>().Property(u => u.CreatedAt).HasColumnType("timestamp").HasDefaultValueSql("CURRENT_TIMESTAMP").ValueGeneratedOnAdd();
+            builder.Entity<Role>().Property(r => r.CreatedAt).HasColumnType("timestamp").HasDefaultValueSql("CURRENT_TIMESTAMP").ValueGeneratedOnAdd();
+            builder.Entity<IMDSDatabaseRecord>().Property(t => t.CreatedAt).HasColumnType("timestamp").HasDefaultValueSql("CURRENT_TIMESTAMP").ValueGeneratedOnAdd();
+            builder.Entity<IMDSPorscheDatabaseRecord>().Property(tt => tt.CreatedAt).HasColumnType("timestamp").HasDefaultValueSql("CURRENT_TIMESTAMP").ValueGeneratedOnAdd();
+
+            //
+            // UpdatedAt auto-update
+            //
+            builder.Entity<User>()
+                .Property(t => t.LastUpdatedAt)
+                .HasColumnType("timestamp")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+                .ValueGeneratedOnAddOrUpdate();
+
+            builder.Entity<IMDSDatabaseRecord>()
+                .Property(u => u.LastUpdatedAt)
+                .HasColumnType("timestamp")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+                .ValueGeneratedOnAddOrUpdate();
+
+            builder.Entity<IMDSPorscheDatabaseRecord>()
+                .Property(u => u.LastUpdatedAt)
+                .HasColumnType("timestamp")
+                .HasDefaultValueSql("CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP")
+                .ValueGeneratedOnAddOrUpdate();
         }
     }
 }

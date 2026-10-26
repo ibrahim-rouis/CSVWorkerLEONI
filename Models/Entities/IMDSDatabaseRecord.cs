@@ -25,6 +25,6 @@ namespace CSVWorker.Models.Entities
         public string? NodeID { get; set; }
 
         public DateTime CreatedAt { get; set; }
-        public DateTime? LastUpdatedAt { get; set; }
+        public DateTime LastUpdatedAt { get; set; }
     }
 }
